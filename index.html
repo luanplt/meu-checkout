@@ -1,205 +1,388 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Checkout</title>
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      padding: 24px 15px;
-      background: #f5f5f5;
-      color: #222;
-      font-family: Arial, sans-serif;
-    }
-    .container {
-      max-width: 440px;
-      margin: 30px auto;
-      padding: 25px;
-      background: white;
-      border-radius: 14px;
-      box-shadow: 0 3px 18px #00000012;
-    }
-    h1 { text-align: center; font-size: 25px; }
-    .produto { text-align: center; margin: 25px 0; }
-    #preco { font-size: 30px; font-weight: bold; }
-    label { display: block; margin: 14px 0 6px; }
-    input {
-      width: 100%;
-      padding: 13px;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      font-size: 16px;
-    }
-    button {
-      width: 100%;
-      padding: 15px;
-      margin-top: 20px;
-      border: 0;
-      border-radius: 8px;
-      background: #171717;
-      color: white;
-      font-size: 17px;
-      font-weight: bold;
-      cursor: pointer;
-    }
-    button:disabled { opacity: .6; }
-    #resultado {
-      margin-top: 22px;
-      text-align: center;
-      overflow-wrap: anywhere;
-    }
-    #qrcode { max-width: 230px; width: 100%; margin: 15px auto; }
-    #codigoPix {
-      padding: 12px;
-      background: #f1f1f1;
-      border-radius: 8px;
-      font-size: 13px;
-      overflow-wrap: anywhere;
-    }
-    .aviso { color: #666; font-size: 13px; text-align: center; }
-    .erro { color: #c62828; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Checkout</title>
+<style>
+:root{--ink:#171717;--paper:#f7f5f2;--accent:#b18b68;--muted:#777}
+*{box-sizing:border-box}
+body{margin:0;padding:22px 14px;background:var(--paper);color:var(--ink);font-family:Arial,sans-serif;min-height:100vh}
+body.com-fundo{background-size:cover;background-position:center;background-attachment:fixed}
+.wrap{max-width:520px;margin:22px auto;background:#fff;border-radius:18px;padding:24px;box-shadow:0 8px 35px #00000012}
+h1{font-size:25px;text-align:center;margin:5px 0 18px}
+#capa{display:none;width:100%;max-height:250px;object-fit:cover;border-radius:12px;margin:0 auto 18px}
+#galeria{display:flex;gap:8px;overflow-x:auto;margin:12px 0}
+#galeria img{width:90px;height:75px;object-fit:cover;border-radius:8px}
+.price{text-align:center;font-size:30px;font-weight:800;margin:12px 0}
+.sub{text-align:center;color:var(--muted);font-size:14px}
+label{display:block;font-size:14px;font-weight:700;margin:13px 0 6px}
+input{width:100%;padding:13px;border:1px solid #d7d7d7;border-radius:9px;font-size:16px;background:#fff}
+button{width:100%;border:0;border-radius:9px;padding:14px;margin-top:14px;background:var(--ink);color:#fff;font-size:16px;font-weight:700;cursor:pointer}
+button:disabled{opacity:.55;cursor:wait}
+#resultado{margin-top:18px;text-align:center;overflow-wrap:anywhere}
+#qrcode{display:block;max-width:230px;width:100%;margin:14px auto}
+#codigoPix{padding:12px;background:#f2f2f2;border-radius:8px;font-size:13px;overflow-wrap:anywhere;text-align:left}
+.aviso{font-size:12px;color:var(--muted);text-align:center;line-height:1.5;margin-top:18px}
+.erro{color:#b42318}.sucesso{color:#167344}
+.link-acesso{display:block;padding:15px;border-radius:9px;background:#167344;color:white;text-decoration:none;font-weight:bold;margin-top:14px}
+.admin-link{display:block;text-align:center;margin:20px auto 0;color:#777;font-size:12px;text-decoration:none}
+.admin{max-width:720px}
+.admin h2{font-size:20px;margin-top:22px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid .full{grid-column:1/-1}
+.separador{border:0;border-top:1px solid #eee;margin:22px 0}
+.preview{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.preview img{width:80px;height:70px;object-fit:cover;border-radius:7px}
+.btn-sec{background:#eee;color:#222}
+.hidden{display:none!important}
+@media(max-width:520px){.wrap{padding:19px}.grid{grid-template-columns:1fr}}
+</style>
 </head>
 <body>
-  <main class="container">
-    <h1 id="nomeProduto">Carregando produto...</h1>
+<main class="wrap" id="checkout">
+  <img id="capa" alt="Capa do produto">
+  <h1 id="nomeProduto">Carregando produto...</h1>
+  <div id="galeria"></div>
+  <div class="price" id="preco">...</div>
+  <p class="sub" id="validade">Pagamento via Pix • Acesso conforme a validade do produto</p>
 
-    <div class="produto">
-      <div id="preco">...</div>
-      <p>Pagamento via Pix</p>
+  <form id="formulario">
+    <label for="nome">Nome completo</label>
+    <input id="nome" required autocomplete="name">
+    <label for="email">E-mail</label>
+    <input id="email" type="email" required autocomplete="email">
+    <label for="cpf">CPF</label>
+    <input id="cpf" required inputmode="numeric" maxlength="14" placeholder="000.000.000-00">
+    <label for="telefone">Celular</label>
+    <input id="telefone" required inputmode="tel" autocomplete="tel" placeholder="(00) 00000-0000">
+    <button id="botao" type="submit">Gerar Pix</button>
+  </form>
+
+  <div id="resultado" aria-live="polite"></div>
+  <p class="aviso">O acesso é liberado após a confirmação do pagamento. Guarde o link de acesso apresentado nesta página.</p>
+  <a class="admin-link" href="#admin" id="abrirAdmin">Área administrativa</a>
+</main>
+
+<section class="wrap admin hidden" id="admin">
+  <h1>Painel administrativo</h1>
+  <div id="loginBox">
+    <p class="sub">Entre com o usuário administrador cadastrado no Supabase.</p>
+    <label for="adminEmail">E-mail</label><input id="adminEmail" type="email" autocomplete="username">
+    <label for="adminSenha">Senha</label><input id="adminSenha" type="password" autocomplete="current-password">
+    <button id="entrar">Entrar</button>
+    <button class="btn-sec" id="voltarLogin">Voltar à loja</button>
+    <div id="loginMsg"></div>
+  </div>
+
+  <div id="painelBox" class="hidden">
+    <p class="sub">Edite o produto e salve as alterações para atualizar a página pública.</p>
+    <div class="grid">
+      <div class="full"><label for="pNome">Nome do produto</label><input id="pNome"></div>
+      <div><label for="pPreco">Preço (R$)</label><input id="pPreco" type="number" min="0.01" step="0.01"></div>
+      <div><label for="pDias">Dias de acesso Pix</label><input id="pDias" type="number" min="1" step="1"></div>
+      <div class="full"><label for="pDrive">Link do Google Drive</label><input id="pDrive" type="url" placeholder="https://drive.google.com/..."></div>
     </div>
 
-    <form id="formulario">
-      <label for="nome">Nome completo</label>
-      <input id="nome" required autocomplete="name">
+    <hr class="separador">
+    <h2>Imagens do produto</h2>
+    <label for="pCapa">Foto de capa</label><input id="pCapa" type="file" accept="image/*">
+    <div class="preview" id="prevCapa"></div>
+    <label for="pGaleria">Galeria (selecione várias fotos)</label><input id="pGaleria" type="file" accept="image/*" multiple>
+    <div class="preview" id="prevGaleria"></div>
+    <label for="pFundo">Foto de fundo</label><input id="pFundo" type="file" accept="image/*">
+    <div class="preview" id="prevFundo"></div>
+    <button id="salvar">Salvar configurações</button>
+    <button class="btn-sec" id="sair">Sair do painel</button>
+    <div id="adminMsg"></div>
+  </div>
+</section>
 
-      <label for="email">E-mail</label>
-      <input id="email" type="email" required autocomplete="email">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const API = "https://meu-checkout-skod.onrender.com";
+const $ = id => document.getElementById(id);
+const resultado = $("resultado");
+let produtoAtual = null;
+let sb = null;
+let adminSession = null;
+let capaUrl = null, fundoUrl = null, galeriaUrls = [];
 
-      <label for="cpf">CPF</label>
-      <input id="cpf" required inputmode="numeric" maxlength="14"
-        placeholder="000.000.000-00">
+function mensagem(el, texto, tipo="") {
+  el.textContent = texto;
+  el.className = tipo;
+}
 
-      <label for="telefone">Celular</label>
-      <input id="telefone" required inputmode="tel"
-        autocomplete="tel" placeholder="(00) 00000-0000">
+async function api(path, options={}) {
+  const headers = {...(options.headers || {})};
+  if (adminSession?.access_token) headers.Authorization = "Bearer " + adminSession.access_token;
+  const response = await fetch(API + path, {...options, headers});
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.erro || data.mensagem || "Falha na comunicação com o servidor.");
+  return data;
+}
 
-      <button id="botao" type="submit">Gerar Pix</button>
-    </form>
+async function iniciarSupabase() {
+  const config = await api("/api/config-public");
+  sb = window.supabase.createClient(config.supabaseUrl, config.supabaseKey);
+  return config;
+}
 
-    <div id="resultado"></div>
-    <p class="aviso">Após a confirmação do pagamento, o acesso será liberado conforme as regras do produto.</p>
-  </main>
-
-  <script>
-    const resultado = document.getElementById("resultado");
-    const botao = document.getElementById("botao");
-
-    async function carregarProduto() {
-      try {
-        const resposta = await fetch("/api/produto");
-        const dados = await resposta.json();
-
-        if (!resposta.ok || dados.erro) {
-          throw new Error(dados.erro || "Não foi possível carregar o produto.");
-        }
-
-        document.getElementById("nomeProduto").textContent =
-          dados.nome || dados.product_name || "Meu Produto";
-
-        const valor = Number(dados.preco ?? dados.price);
-        if (!Number.isFinite(valor)) throw new Error("Preço do produto inválido.");
-
-        document.getElementById("preco").textContent =
-          valor.toLocaleString("pt-BR", {
-            style: "currency", currency: "BRL"
-          });
-      } catch (erro) {
-        document.getElementById("nomeProduto").textContent = "Erro ao carregar";
-        document.getElementById("preco").textContent = "";
-        resultado.textContent = erro.message;
-        resultado.className = "erro";
-      }
+async function carregarProduto() {
+  try {
+    const dados = await api("/api/produto");
+    produtoAtual = dados;
+    $("nomeProduto").textContent = dados.nome || "Meu Produto";
+    $("preco").textContent = Number(dados.preco).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+    $("validade").textContent = `Pagamento via Pix • ${dados.dias_acesso_pix || 30} dias de acesso`;
+    if (dados.capa) {
+      $("capa").src = dados.capa;
+      $("capa").style.display = "block";
     }
-
-    document.getElementById("formulario").addEventListener("submit", async (evento) => {
-      evento.preventDefault();
-      resultado.textContent = "";
-      botao.disabled = true;
-      botao.textContent = "Gerando Pix...";
-
-      const dados = {
-        nome: document.getElementById("nome").value.trim(),
-        email: document.getElementById("email").value.trim(),
-        cpf: document.getElementById("cpf").value.replace(/\D/g, ""),
-        telefone: document.getElementById("telefone").value.replace(/\D/g, "")
-      };
-
-      try {
-        const resposta = await fetch("/api/pix/criar", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(dados)
-        });
-
-        const retorno = await resposta.json();
-
-        if (!resposta.ok || retorno.erro || retorno.status === "erro") {
-          throw new Error(retorno.mensagem || retorno.erro || "Não foi possível gerar o Pix.");
-        }
-
-        const pix = retorno.pix || retorno;
-        const imagem = pix.imagemQrcode || pix.imagem_qrcode ||
-          pix.qrCodeImage || pix.qrcode_image;
-        const codigo = pix.qrcode || pix.codigoPix || pix.copiaECola ||
-          pix.pixCopiaECola || pix.copia_cola;
-
-        resultado.innerHTML = "<h3>Pix gerado!</h3>";
-
-        if (imagem) {
-          const img = document.createElement("img");
-          img.id = "qrcode";
-          img.alt = "QR Code Pix";
-          img.src = imagem.startsWith("data:") || imagem.startsWith("http")
-            ? imagem : "data:image/png;base64," + imagem;
-          resultado.appendChild(img);
-        }
-
-        if (codigo) {
-          const titulo = document.createElement("p");
-          titulo.textContent = "Pix Copia e Cola:";
-          resultado.appendChild(titulo);
-
-          const texto = document.createElement("div");
-          texto.id = "codigoPix";
-          texto.textContent = codigo;
-          resultado.appendChild(texto);
-
-          const copiar = document.createElement("button");
-          copiar.type = "button";
-          copiar.textContent = "Copiar código Pix";
-          copiar.onclick = async () => {
-            await navigator.clipboard.writeText(codigo);
-            copiar.textContent = "Código copiado!";
-          };
-          resultado.appendChild(copiar);
-        }
-
-        if (!imagem && !codigo) {
-          resultado.textContent = JSON.stringify(retorno);
-        }
-      } catch (erro) {
-        resultado.textContent = erro.message;
-        resultado.className = "erro";
-      } finally {
-        botao.disabled = false;
-        botao.textContent = "Gerar Pix";
-      }
+    if (dados.fundo) {
+      document.body.classList.add("com-fundo");
+      document.body.style.backgroundImage = `url("${dados.fundo}")`;
+    }
+    $("galeria").replaceChildren();
+    (dados.galeria || []).forEach(url => {
+      const img = document.createElement("img");
+      img.src = url; img.alt = "Imagem do produto";
+      $("galeria").appendChild(img);
     });
+  } catch (error) {
+    $("nomeProduto").textContent = "Não foi possível carregar o produto";
+    $("preco").textContent = "";
+    mensagem(resultado, error.message, "erro");
+  }
+}
 
-    carregarProduto();
-  </script>
+function mostrarPix(retorno, dadosCliente) {
+  resultado.replaceChildren();
+  const titulo = document.createElement("h3");
+  titulo.textContent = "Pix gerado! Aguardando pagamento.";
+  resultado.appendChild(titulo);
+
+  const imagem = retorno.imagem_qrcode;
+  const codigo = retorno.pix_copia_e_cola;
+  if (imagem) {
+    const img = document.createElement("img");
+    img.id = "qrcode"; img.alt = "QR Code Pix";
+    img.src = imagem.startsWith("data:") || imagem.startsWith("http")
+      ? imagem : "data:image/png;base64," + imagem;
+    resultado.appendChild(img);
+  }
+  if (codigo) {
+    const label = document.createElement("p");
+    label.textContent = "Pix Copia e Cola:";
+    resultado.appendChild(label);
+    const code = document.createElement("div");
+    code.id = "codigoPix"; code.textContent = codigo;
+    resultado.appendChild(code);
+    const copy = document.createElement("button");
+    copy.type = "button"; copy.textContent = "Copiar código Pix";
+    copy.onclick = async () => {
+      try { await navigator.clipboard.writeText(codigo); copy.textContent = "Código copiado!"; }
+      catch { mensagem(resultado, "Não foi possível copiar automaticamente. Selecione o código Pix acima.", "erro"); }
+    };
+    resultado.appendChild(copy);
+  }
+
+  const status = document.createElement("p");
+  status.textContent = "Estamos verificando a confirmação do pagamento...";
+  status.style.marginTop = "18px";
+  resultado.appendChild(status);
+
+  let tentativas = 0;
+  const verificar = async () => {
+    tentativas++;
+    try {
+      const retornoStatus = await api("/api/pedido/status", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({pedido_id: retorno.pedido_id, email: dadosCliente.email})
+      });
+      if (retornoStatus.status === "paid" && retornoStatus.acesso) {
+        status.textContent = "Pagamento confirmado! Seu acesso está liberado.";
+        status.className = "sucesso";
+        const link = document.createElement("a");
+        link.className = "link-acesso";
+        link.href = retornoStatus.acesso;
+        link.textContent = "Acessar meu produto";
+        link.target = "_blank";
+        link.rel = "noopener";
+        resultado.appendChild(link);
+        return;
+      }
+      if (retornoStatus.status === "failed" || retornoStatus.status === "expired") {
+        status.textContent = "Este pagamento não foi concluído. Gere um novo Pix.";
+        return;
+      }
+      if (tentativas < 60) setTimeout(verificar, 5000);
+      else status.textContent = "Ainda aguardando confirmação. Atualize esta página mais tarde e consulte seu pedido.";
+    } catch (e) {
+      if (tentativas < 60) setTimeout(verificar, 7000);
+      else status.textContent = "Não foi possível consultar automaticamente. O pagamento continua sendo verificado pelo sistema.";
+    }
+  };
+  setTimeout(verificar, 5000);
+}
+
+$("formulario").addEventListener("submit", async event => {
+  event.preventDefault();
+  resultado.replaceChildren();
+  const botao = $("botao");
+  botao.disabled = true; botao.textContent = "Gerando Pix...";
+  const dados = {
+    nome: $("nome").value.trim(),
+    email: $("email").value.trim().toLowerCase(),
+    cpf: $("cpf").value.replace(/\D/g,""),
+    telefone: $("telefone").value.replace(/\D/g,"")
+  };
+  try {
+    const retorno = await api("/api/pix/criar", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(dados)
+    });
+    mostrarPix(retorno, dados);
+  } catch (error) {
+    mensagem(resultado, error.message, "erro");
+  } finally {
+    botao.disabled = false; botao.textContent = "Gerar Pix";
+  }
+});
+
+function mostrarAreaAdmin() {
+  $("checkout").classList.add("hidden");
+  $("admin").classList.remove("hidden");
+}
+function mostrarLoja() {
+  $("admin").classList.add("hidden");
+  $("checkout").classList.remove("hidden");
+  history.replaceState(null,"",location.pathname);
+}
+$("abrirAdmin").addEventListener("click", async e => {
+  e.preventDefault(); mostrarAreaAdmin();
+  try {
+    await iniciarSupabase();
+    const {data} = await sb.auth.getSession();
+    if (data.session) {
+      adminSession = data.session;
+      await carregarPainel();
+    }
+  } catch (error) { mensagem($("loginMsg"), error.message, "erro"); }
+});
+$("voltarLogin").onclick = mostrarLoja;
+
+$("entrar").onclick = async () => {
+  try {
+    $("entrar").disabled = true;
+    if (!sb) await iniciarSupabase();
+    const {data, error} = await sb.auth.signInWithPassword({
+      email:$("adminEmail").value.trim(),
+      password:$("adminSenha").value
+    });
+    if (error) throw error;
+    adminSession = data.session;
+    await carregarPainel();
+  } catch (error) {
+    mensagem($("loginMsg"), error.message || "Não foi possível entrar.", "erro");
+  } finally { $("entrar").disabled = false; }
+};
+
+async function carregarPainel() {
+  try {
+    const cfg = await api("/api/admin/config");
+    $("loginBox").classList.add("hidden");
+    $("painelBox").classList.remove("hidden");
+    $("pNome").value = cfg.name || "";
+    $("pPreco").value = cfg.price || "";
+    $("pDias").value = cfg.accessDays || 30;
+    $("pDrive").value = cfg.driveUrl || "";
+    capaUrl = cfg.coverUrl || null;
+    fundoUrl = cfg.backgroundUrl || null;
+    galeriaUrls = Array.isArray(cfg.galleryUrls) ? cfg.galleryUrls : [];
+    renderPreviews();
+  } catch (error) {
+    mensagem($("loginMsg"), error.message, "erro");
+    if (error.message.includes("Sessão") || error.message.includes("administrador")) {
+      await sb.auth.signOut(); adminSession = null;
+    }
+  }
+}
+
+function renderPreviews() {
+  $("prevCapa").replaceChildren();
+  $("prevFundo").replaceChildren();
+  $("prevGaleria").replaceChildren();
+  if (capaUrl) addPreview($("prevCapa"), capaUrl);
+  if (fundoUrl) addPreview($("prevFundo"), fundoUrl);
+  galeriaUrls.forEach(url => addPreview($("prevGaleria"), url));
+}
+function addPreview(container, url) {
+  const img = document.createElement("img"); img.src = url; img.alt = "Prévia";
+  container.appendChild(img);
+}
+async function uploadImagem(file) {
+  if (!file) return null;
+  if (!file.type.startsWith("image/")) throw new Error("Selecione um arquivo de imagem.");
+  if (file.size > 5 * 1024 * 1024) throw new Error("Cada imagem deve ter no máximo 5 MB.");
+  const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g,"") || "jpg";
+  const path = `produtos/${crypto.randomUUID()}.${ext}`;
+  const {data, error} = await sb.storage.from("product-media").upload(path, file, {
+    cacheControl:"3600", upsert:false, contentType:file.type
+  });
+  if (error) throw error;
+  return sb.storage.from("product-media").getPublicUrl(data.path).data.publicUrl;
+}
+
+$("salvar").onclick = async () => {
+  const btn = $("salvar");
+  try {
+    btn.disabled = true; btn.textContent = "Enviando e salvando...";
+    mensagem($("adminMsg"), "Enviando imagens e salvando configurações...");
+    const capaFile = $("pCapa").files[0];
+    const fundoFile = $("pFundo").files[0];
+    if (capaFile) capaUrl = await uploadImagem(capaFile);
+    if (fundoFile) fundoUrl = await uploadImagem(fundoFile);
+    const files = Array.from($("pGaleria").files || []);
+    if (files.length) {
+      const uploaded = [];
+      for (const file of files) uploaded.push(await uploadImagem(file));
+      galeriaUrls = [...galeriaUrls, ...uploaded].slice(0,20);
+    }
+    const payload = {
+      name:$("pNome").value.trim(),
+      price:Number($("pPreco").value),
+      accessDays:Number($("pDias").value),
+      driveUrl:$("pDrive").value.trim(),
+      coverUrl:capaUrl,
+      backgroundUrl:fundoUrl,
+      galleryUrls:galeriaUrls
+    };
+    await api("/api/admin/config", {
+      method:"PUT",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(payload)
+    });
+    $("pCapa").value = ""; $("pFundo").value = ""; $("pGaleria").value = "";
+    renderPreviews();
+    mensagem($("adminMsg"), "Configurações salvas com sucesso!", "sucesso");
+    await carregarProduto();
+  } catch (error) {
+    mensagem($("adminMsg"), error.message, "erro");
+  } finally { btn.disabled = false; btn.textContent = "Salvar configurações"; }
+};
+
+$("sair").onclick = async () => {
+  if (sb) await sb.auth.signOut();
+  adminSession = null;
+  $("painelBox").classList.add("hidden");
+  $("loginBox").classList.remove("hidden");
+  mostrarLoja();
+};
+
+carregarProduto();
+</script>
 </body>
 </html>
