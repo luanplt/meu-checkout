@@ -52,7 +52,15 @@ button:disabled{opacity:.55;cursor:wait}
 
 <main class="wrap" id="checkout">
 
-  <img id="capa" alt="Capa do produto">
+  <section id="vitrineBox">
+    <h1>Nossa vitrine</h1>
+    <p class="sub">Escolha o produto que deseja adquirir.</p>
+    <div id="vitrine" class="vitrine-grid"></div>
+  </section>
+
+  <section id="produtoDetalhe" class="hidden">
+    <button type="button" class="btn-sec" id="voltarVitrine">← Voltar à vitrine</button>
+    <img id="capa" alt="Capa do produto">
 
   <h1 id="nomeProduto">Carregando produto...</h1>
 
@@ -83,6 +91,8 @@ button:disabled{opacity:.55;cursor:wait}
     O acesso é liberado após a confirmação do pagamento.
     Guarde o e-mail utilizado na compra para consultar seus pedidos.
   </p>
+
+  </section>
 
   <button type="button" class="btn-sec" id="abrirHistorico">
     Meus pedidos
@@ -165,6 +175,38 @@ button:disabled{opacity:.55;cursor:wait}
 
   <div id="painelBox" class="hidden">
 
+    <h2>Gerenciar vitrine (até 5 produtos)</h2>
+    <p class="sub">Cadastre até cinco produtos. Cada um terá preço, prazo e link de acesso próprios.</p>
+    <div id="adminListaProdutos"></div>
+    <div class="admin-produto">
+      <h3 id="tituloFormularioProduto">Adicionar produto</h3>
+      <label for="admProdutoNome">Nome do produto</label>
+      <input id="admProdutoNome" placeholder="Nome que aparecerá na vitrine">
+      <div class="grid">
+        <div>
+          <label for="admProdutoPreco">Preço (R$)</label>
+          <input id="admProdutoPreco" type="number" min="0.01" step="0.01">
+        </div>
+        <div>
+          <label for="admProdutoDias">Dias de acesso</label>
+          <input id="admProdutoDias" type="number" min="1" step="1" value="30">
+        </div>
+      </div>
+      <label for="admProdutoDrive">Link do Google Drive</label>
+      <input id="admProdutoDrive" type="url" placeholder="https://drive.google.com/...">
+      <label for="admProdutoCapa">URL da imagem de capa (opcional)</label>
+      <input id="admProdutoCapa" type="url" placeholder="https://...">
+      <label for="admProdutoAtivo">Produto ativo na vitrine</label>
+      <input id="admProdutoAtivo" type="checkbox" checked style="width:auto">
+      <button id="salvarProdutoAdmin" type="button">Cadastrar produto</button>
+      <button id="cancelarEdicaoProduto" type="button" class="btn-sec">Limpar formulário</button>
+      <div id="adminProdutosMsg" aria-live="polite"></div>
+    </div>
+
+    <hr class="separador">
+    <h2>Configurações antigas do produto principal</h2>
+    <p class="sub">A seção abaixo permanece para compatibilidade com suas configurações anteriores.</p>
+
     <p class="sub">
       Edite o produto e salve as alterações para atualizar a página pública.
     </p>
@@ -228,6 +270,9 @@ const $ = id => document.getElementById(id);
 const resultado = $("resultado");
 
 let produtoAtual = null;
+let produtosVitrine = [];
+let produtoSelecionadoId = null;
+let produtoAdminId = null;
 let sb = null;
 let adminSession = null;
 
@@ -278,49 +323,103 @@ async function iniciarSupabase() {
   return sb;
 }
 
-// PRODUTO
+// VITRINE DE PRODUTOS
+
+function formatarDinheiro(valor) {
+  return Number(valor || 0).toLocaleString("pt-BR", {
+    style: "currency", currency: "BRL"
+  });
+}
 
 async function carregarProduto() {
   try {
-    const dados = await api("/api/produto");
-
-    produtoAtual = dados;
-
-    $("nomeProduto").textContent = dados.nome || "Meu Produto";
-
-    $("preco").textContent = Number(dados.preco).toLocaleString(
-      "pt-BR",
-      {style:"currency",currency:"BRL"}
-    );
-
-    $("validade").textContent =
-      `Pagamento via Pix • ${dados.dias_acesso_pix || 30} dias de acesso`;
-
-    if (dados.capa) {
-      $("capa").src = dados.capa;
-      $("capa").style.display = "block";
+    const resposta = await api("/api/produtos");
+    produtosVitrine = Array.isArray(resposta.produtos) ? resposta.produtos : [];
+    renderVitrine();
+    if (!produtosVitrine.length) {
+      $("vitrine").textContent = "Nenhum produto disponível no momento.";
     }
-
-    if (dados.fundo) {
-      document.body.classList.add("com-fundo");
-      document.body.style.backgroundImage = `url("${dados.fundo}")`;
-    }
-
-    $("galeria").replaceChildren();
-
-    (dados.galeria || []).forEach(url => {
-      const img = document.createElement("img");
-      img.src = url;
-      img.alt = "Imagem do produto";
-      $("galeria").appendChild(img);
-    });
-
   } catch (error) {
-    $("nomeProduto").textContent = "Não foi possível carregar o produto";
-    $("preco").textContent = "";
-    mensagem(resultado, error.message, "erro");
+    $("vitrine").textContent = error.message || "Não foi possível carregar a vitrine.";
   }
 }
+
+function renderVitrine() {
+  const vitrine = $("vitrine");
+  vitrine.replaceChildren();
+
+  produtosVitrine.forEach(produto => {
+    const card = document.createElement("article");
+    card.className = "produto-card";
+
+    if (produto.cover_url) {
+      const img = document.createElement("img");
+      img.src = produto.cover_url;
+      img.alt = produto.name || "Produto";
+      card.appendChild(img);
+    }
+
+    const titulo = document.createElement("h3");
+    titulo.textContent = produto.name || "Produto digital";
+    card.appendChild(titulo);
+
+    const valor = document.createElement("div");
+    valor.className = "valor";
+    valor.textContent = formatarDinheiro(produto.price);
+    card.appendChild(valor);
+
+    const prazo = document.createElement("small");
+    prazo.textContent = `${produto.pix_access_days || 30} dias de acesso`;
+    card.appendChild(prazo);
+
+    const comprar = document.createElement("button");
+    comprar.type = "button";
+    comprar.textContent = "Ver e comprar";
+    comprar.onclick = () => selecionarProduto(produto.id);
+    card.appendChild(comprar);
+
+    vitrine.appendChild(card);
+  });
+}
+
+function selecionarProduto(id) {
+  const produto = produtosVitrine.find(item => item.id === id);
+  if (!produto) return;
+
+  produtoAtual = produto;
+  produtoSelecionadoId = produto.id;
+  $("vitrineBox").classList.add("hidden");
+  $("produtoDetalhe").classList.remove("hidden");
+  $("nomeProduto").textContent = produto.name || "Meu Produto";
+  $("preco").textContent = formatarDinheiro(produto.price);
+  $("validade").textContent = `Pagamento via Pix • ${produto.pix_access_days || 30} dias de acesso`;
+
+  $("capa").removeAttribute("src");
+  $("capa").style.display = produto.cover_url ? "block" : "none";
+  if (produto.cover_url) $("capa").src = produto.cover_url;
+
+  $("galeria").replaceChildren();
+  (Array.isArray(produto.gallery_urls) ? produto.gallery_urls : []).forEach(url => {
+    const img = document.createElement("img");
+    img.src = url;
+    img.alt = "Imagem do produto";
+    $("galeria").appendChild(img);
+  });
+
+  document.body.classList.toggle("com-fundo", Boolean(produto.background_url));
+  document.body.style.backgroundImage = produto.background_url
+    ? `url("${produto.background_url}")` : "";
+
+  $("produtoDetalhe").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+$("voltarVitrine").onclick = () => {
+  $("produtoDetalhe").classList.add("hidden");
+  $("vitrineBox").classList.remove("hidden");
+  produtoSelecionadoId = null;
+  produtoAtual = null;
+  resultado.replaceChildren();
+};
 
 // PIX
 
@@ -455,7 +554,8 @@ $("formulario").addEventListener("submit", async event => {
   const dados = {
     nome: $("nome").value.trim(),
     email: $("email").value.trim().toLowerCase(),
-    telefone: $("telefone").value.replace(/\D/g,"")
+    telefone: $("telefone").value.replace(/\D/g,""),
+    product_id: produtoSelecionadoId
   };
 
   try {
@@ -789,12 +889,98 @@ $("entrar").onclick = async () => {
   }
 };
 
+async function carregarProdutosAdmin() {
+  const resposta = await api("/api/admin/produtos");
+  const produtos = Array.isArray(resposta.produtos) ? resposta.produtos : [];
+  const lista = $("adminListaProdutos");
+  lista.replaceChildren();
+
+  produtos.forEach(produto => {
+    const item = document.createElement("div");
+    item.className = "admin-produto";
+    const titulo = document.createElement("strong");
+    titulo.textContent = produto.name;
+    const info = document.createElement("p");
+    info.textContent = `${formatarDinheiro(produto.price)} • ${produto.pix_access_days} dias • ${produto.active ? "Ativo" : "Inativo"}`;
+    const editar = document.createElement("button");
+    editar.type = "button";
+    editar.textContent = "Editar";
+    editar.onclick = () => preencherProdutoAdmin(produto);
+    item.append(titulo, info, editar);
+    lista.appendChild(item);
+  });
+
+  const botao = $("salvarProdutoAdmin");
+  botao.disabled = produtos.length >= 5 && !produtoAdminId;
+  if (produtos.length >= 5 && !produtoAdminId) {
+    mensagem($("adminProdutosMsg"), "Limite de 5 produtos atingido. Edite um produto existente.");
+  }
+}
+
+function preencherProdutoAdmin(produto) {
+  produtoAdminId = produto.id;
+  $("tituloFormularioProduto").textContent = "Editar produto";
+  $("admProdutoNome").value = produto.name || "";
+  $("admProdutoPreco").value = produto.price || "";
+  $("admProdutoDias").value = produto.pix_access_days || 30;
+  $("admProdutoDrive").value = produto.drive_url || "";
+  $("admProdutoCapa").value = produto.cover_url || "";
+  $("admProdutoAtivo").checked = produto.active !== false;
+  $("salvarProdutoAdmin").textContent = "Salvar alterações";
+  $("admProdutoNome").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function limparFormularioProdutoAdmin() {
+  produtoAdminId = null;
+  $("tituloFormularioProduto").textContent = "Adicionar produto";
+  $("admProdutoNome").value = "";
+  $("admProdutoPreco").value = "";
+  $("admProdutoDias").value = "30";
+  $("admProdutoDrive").value = "";
+  $("admProdutoCapa").value = "";
+  $("admProdutoAtivo").checked = true;
+  $("salvarProdutoAdmin").textContent = "Cadastrar produto";
+  mensagem($("adminProdutosMsg"), "");
+}
+
+$("cancelarEdicaoProduto").onclick = limparFormularioProdutoAdmin;
+
+$("salvarProdutoAdmin").onclick = async () => {
+  const botao = $("salvarProdutoAdmin");
+  try {
+    botao.disabled = true;
+    const payload = {
+      name: $("admProdutoNome").value.trim(),
+      price: Number($("admProdutoPreco").value),
+      accessDays: Number($("admProdutoDias").value),
+      driveUrl: $("admProdutoDrive").value.trim(),
+      coverUrl: $("admProdutoCapa").value.trim() || null,
+      active: $("admProdutoAtivo").checked
+    };
+    const editando = Boolean(produtoAdminId);
+    await api(editando ? `/api/admin/produtos/${produtoAdminId}` : "/api/admin/produtos", {
+      method: editando ? "PUT" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    mensagem($("adminProdutosMsg"), editando ? "Produto atualizado!" : "Produto cadastrado!", "sucesso");
+    limparFormularioProdutoAdmin();
+    await carregarProdutosAdmin();
+    await carregarProduto();
+  } catch (error) {
+    mensagem($("adminProdutosMsg"), error.message, "erro");
+  } finally {
+    botao.disabled = false;
+  }
+};
+
 async function carregarPainel() {
   try {
     const cfg = await api("/api/admin/config");
 
     $("loginBox").classList.add("hidden");
     $("painelBox").classList.remove("hidden");
+    await carregarProdutosAdmin();
 
     $("pNome").value = cfg.name || "";
     $("pPreco").value = cfg.price || "";
