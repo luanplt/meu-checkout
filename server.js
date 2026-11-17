@@ -8,63 +8,29 @@ app.use(express.json());
 const PORT = process.env.PORT || 10000;
 
 app.get("/", (req, res) => {
-  res.json({
-    status: "online",
-    service: "Meu Checkout"
-  });
+  res.json({ status: "online", service: "Meu Checkout" });
 });
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
 
-function obterVariavel(nome) {
+function env(nome) {
   return (process.env[nome] || "").trim();
 }
 
-function ajustarPem(valor) {
-  return valor
-    .replace(/\\n/g, "\n")
-    .replace(/\r\n/g, "\n")
-    .trim() + "\n";
+function pem(valor) {
+  return valor.replace(/\\n/g, "\n").replace(/\r\n/g, "\n").trim() + "\n";
 }
 
-// Diagnóstico e autenticação de produção Efí
 app.get("/efi/teste", async (req, res) => {
-  const clientId = obterVariavel("EFI_CLIENT_ID");
-  const clientSecret = obterVariavel("EFI_CLIENT_SECRET");
-  const certificado = ajustarPem(obterVariavel("EFI_CERTIFICATE"));
-  const chavePrivada = ajustarPem(obterVariavel("EFI_PRIVATE_KEY"));
-
-  const problemas = [];
-
-  if (!clientId) problemas.push("EFI_CLIENT_ID");
-  if (!clientSecret) problemas.push("EFI_CLIENT_SECRET");
-
-  if (!certificado.includes("-----BEGIN CERTIFICATE-----") ||
-      !certificado.includes("-----END CERTIFICATE-----")) {
-    problemas.push("EFI_CERTIFICATE");
-  }
-
-  if (
-    !chavePrivada.includes("-----BEGIN PRIVATE KEY-----") &&
-    !chavePrivada.includes("-----BEGIN RSA PRIVATE KEY-----")
-  ) {
-    problemas.push("EFI_PRIVATE_KEY");
-  }
-
-  if (problemas.length > 0) {
-    return res.status(500).json({
-      status: "erro",
-      mensagem: "Confira as variáveis no Render.",
-      variaveis_com_problema: problemas
-    });
-  }
-
   try {
+    const cert = pem(env("EFI_CERTIFICATE"));
+    const key = pem(env("EFI_PRIVATE_KEY"));
+
     const agent = new https.Agent({
-      cert: certificado,
-      key: chavePrivada,
+      cert,
+      key,
       minVersion: "TLSv1.2"
     });
 
@@ -74,33 +40,29 @@ app.get("/efi/teste", async (req, res) => {
       {
         httpsAgent: agent,
         auth: {
-          username: clientId,
-          password: clientSecret
+          username: env("EFI_CLIENT_ID"),
+          password: env("EFI_CLIENT_SECRET")
         },
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         timeout: 30000
       }
     );
 
     return res.json({
       status: "sucesso",
-      mensagem: "Autenticação com a Efí realizada!",
-      token_type: resposta.data.token_type,
+      mensagem: "Autenticação realizada!",
       expires_in: resposta.data.expires_in
     });
-
   } catch (erro) {
-    console.error(
-      "Falha Efí:",
-      erro.response?.status || erro.code || "Erro de conexão"
-    );
+    console.error("Detalhe Efí:", erro.response?.data || erro.message);
 
     return res.status(502).json({
       status: "erro",
-      mensagem: "Falha na autenticação com a Efí.",
-      codigo: erro.response?.status || erro.code || "CONEXAO"
+      codigo: erro.response?.status || erro.code || "CONEXAO",
+      detalhe: erro.response?.data?.error_description ||
+               erro.response?.data?.error ||
+               erro.code ||
+               "Falha na conexão"
     });
   }
 });
