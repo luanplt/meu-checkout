@@ -145,8 +145,8 @@ async function createAccess(order) {
     paidAt.getTime() + settings.accessDays * 86400000
   );
 
-  // O campo access_token no Supabase deve ser do tipo UUID.
-  const accessToken = crypto.randomBytes(16).toString("hex")
+  // UUID válido para a coluna access_token do Supabase.
+  const accessToken = crypto.randomUUID();
 
   const { error: insertError } = await supabase
     .from("checkout_access")
@@ -426,7 +426,10 @@ app.post("/api/pix/criar", async (req, res) => {
     }
 
     const settings = await getSettings();
-    const txid = crypto.randomUUID();
+
+    // TXID com 32 caracteres alfanuméricos, aceito pela Efí.
+    const txid = crypto.randomBytes(16).toString("hex");
+
     const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
 
     const { data: pedido, error: insertError } = await supabase
@@ -575,7 +578,6 @@ app.post("/api/pedido/status", async (req, res) => {
 });
 
 // HISTÓRICO DE COMPRAS
-// Só permite consultar após autenticação pelo Supabase Auth.
 
 app.get("/api/meus-pedidos", async (req, res) => {
   try {
@@ -616,7 +618,7 @@ app.get("/api/meus-pedidos", async (req, res) => {
       return res.json({ pedidos: [] });
     }
 
-    // Garante que pedidos pagos tenham acesso criado.
+    // Cria acesso para pedidos pagos que ainda não tenham acesso.
     for (const pedido of pedidos) {
       if (pedido.status === "paid") {
         await createAccess(pedido);
