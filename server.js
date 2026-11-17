@@ -27,6 +27,8 @@ app.use((req, res, next) => {
   next();
 });
 
+
+
 function env(name) {
   return (process.env[name] || "").trim();
 }
@@ -107,20 +109,33 @@ async function getSettings() {
   };
 }
 
-async function getActiveProduct() {
+async function getProductById(productId) {
+  if (!productId) return null;
+
   const { data, error } = await supabase
     .from("checkout_products")
-    .select("id, name, drive_url")
-    .eq("active", true)
-    .limit(1)
+    .select("id, name, drive_url, price, pix_access_days, active")
+    .eq("id", productId)
     .maybeSingle();
 
   if (error) throw error;
   return data;
 }
 
+async function getActiveProducts() {
+  const { data, error } = await supabase
+    .from("checkout_products")
+    .select("id, name, drive_url, price, pix_access_days, cover_url, gallery_urls, background_url, active")
+    .eq("active", true)
+    .order("created_at", { ascending: true })
+    .limit(5);
+
+  if (error) throw error;
+  return data || [];
+}
+
 async function createAccess(order) {
-  const product = await getActiveProduct();
+  const product = await getProductById(order.product_id);
 
   if (!product) {
     console.error("Pedido pago, mas não existe produto ativo cadastrado.");
@@ -137,12 +152,13 @@ async function createAccess(order) {
   if (existingError) throw existingError;
   if (existing) return existing.access_token;
 
-  const settings = await getSettings();
+  const accessDays = Math.max(1, Number(product.pix_access_days || 30));
   const paidAt = order.paid_at ? new Date(order.paid_at) : new Date();
   const expiresAt = new Date(
-    paidAt.getTime() + settings.accessDays * 86400000
+    paidAt.getTime() + accessDays * 86400000
   );
 
+  // UUID válido para a coluna access_token do Supabase.
   const accessToken = crypto.randomUUID();
 
   const { error: insertError } = await supabase
@@ -281,6 +297,16 @@ app.get("/efi/teste", async (req, res) => {
   }
 });
 
+app.get("/api/produtos", async (req, res) => {
+  try {
+    const products = await getActiveProducts();
+    res.json({ produtos: products });
+  } catch (error) {
+    console.error("Erro ao consultar vitrine:", error.message);
+    res.status(500).json({ erro: "Não foi possível carregar os produtos." });
+  }
+});
+
 app.get("/api/produto", async (req, res) => {
   try {
     const settings = await getSettings();
@@ -303,6 +329,98 @@ app.get("/api/produto", async (req, res) => {
 });
 
 // PAINEL ADMINISTRATIVO
+
+app.get("/api/admin/produtos", requireAdmin, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from("checkout_products")
+      .select("id, name, drive_url, price, pix_access_days, cover_url, gallery_urls, background_url, active")
+      .order("created_at", { ascending: true })
+      .limit(5);
+    if (error) throw error;
+    res.json({ produtos: data || [] });
+  } catch (error) {
+    console.error("Erro ao listar produtos:", error.message);
+    res.status(500).json({ erro: "Não foi possível listar os produtos." });
+  }
+});
+
+app.post("/api/admin/produtos", requireAdmin, async (req, res) => {
+  try {
+    const { data: existentes, error: listError } = await supabase
+      .from("checkout_products").select("id").limit(5);
+    if (listError) throw listError;
+    if ((existentes || []).length >= 5) {
+      return res.status(400).json({ erro: "A vitrine permite no máximo 5 produtos." });
+    }
+
+    const name = String(req.body?.name || "").trim();
+    const driveUrl = String(req.body?.driveUrl || "").trim();
+    const price = Number(req.body?.price);
+    const accessDays = Number(req.body?.accessDays || 30);
+    const coverUrl = req.body?.coverUrl ? String(req.body.coverUrl) : null;
+    const galleryUrls = Array.isArray(req.body?.galleryUrls)
+      ? req.body.galleryUrls.filter(v => typeof v === "string").slice(0, 20) : [];
+    const backgroundUrl = req.body?.backgroundUrl ? String(req.body.backgroundUrl) : null;
+
+    if (!name) return res.status(400).json({ erro: "Informe o nome do produto." });
+    if (!Number.isFinite(price) || price <= 0 || price > 100000) {
+      return res.status(400).json({ erro: "Informe um preço válido." });
+    }
+    if (!Number.isInteger(accessDays) || accessDays < 1 || accessDays > 3650) {
+      return res.status(400).json({ erro: "Informe uma validade entre 1 e 3650 dias." });
+    }
+    if (!driveUrl || !/^https:\/\/(drive\.google\.com|docs\.google\.com)\//i.test(driveUrl)) {
+      return res.status(400).json({ erro: "Informe um link válido do Google Drive." });
+    }
+
+    const { data, error } = await supabase.from("checkout_products").insert({
+      name, drive_url: driveUrl, price: price.toFixed(2), pix_access_days: accessDays,
+      cover_url: coverUrl, gallery_urls: galleryUrls, background_url: backgroundUrl,
+      active: true, updated_at: new Date().toISOString()
+    }).select("id, name, drive_url, price, pix_access_days, cover_url, gallery_urls, background_url, active").single();
+    if (error) throw error;
+    res.status(201).json({ produto: data });
+  } catch (error) {
+    console.error("Erro ao criar produto:", error.message);
+    res.status(500).json({ erro: "Não foi possível cadastrar o produto. Confira a migração do banco." });
+  }
+});
+
+app.put("/api/admin/produtos/:id", requireAdmin, async (req, res) => {
+  try {
+    const name = String(req.body?.name || "").trim();
+    const driveUrl = String(req.body?.driveUrl || "").trim();
+    const price = Number(req.body?.price);
+    const accessDays = Number(req.body?.accessDays || 30);
+    const coverUrl = req.body?.coverUrl ? String(req.body.coverUrl) : null;
+    const galleryUrls = Array.isArray(req.body?.galleryUrls)
+      ? req.body.galleryUrls.filter(v => typeof v === "string").slice(0, 20) : [];
+    const backgroundUrl = req.body?.backgroundUrl ? String(req.body.backgroundUrl) : null;
+    const active = req.body?.active !== false;
+
+    if (!name || !Number.isFinite(price) || price <= 0 || price > 100000 ||
+        !Number.isInteger(accessDays) || accessDays < 1 || accessDays > 3650) {
+      return res.status(400).json({ erro: "Confira nome, preço e validade do produto." });
+    }
+    if (!driveUrl || !/^https:\/\/(drive\.google\.com|docs\.google\.com)\//i.test(driveUrl)) {
+      return res.status(400).json({ erro: "Informe um link válido do Google Drive." });
+    }
+
+    const { data, error } = await supabase.from("checkout_products").update({
+      name, drive_url: driveUrl, price: price.toFixed(2), pix_access_days: accessDays,
+      cover_url: coverUrl, gallery_urls: galleryUrls, background_url: backgroundUrl,
+      active, updated_at: new Date().toISOString()
+    }).eq("id", req.params.id)
+      .select("id, name, drive_url, price, pix_access_days, cover_url, gallery_urls, background_url, active")
+      .single();
+    if (error) throw error;
+    res.json({ produto: data });
+  } catch (error) {
+    console.error("Erro ao atualizar produto:", error.message);
+    res.status(500).json({ erro: "Não foi possível atualizar o produto." });
+  }
+});
 
 app.get("/api/admin/config", requireAdmin, async (req, res) => {
   try {
@@ -393,7 +511,7 @@ app.put("/api/admin/config", requireAdmin, async (req, res) => {
   }
 });
 
-// CRIAÇÃO DO PIX — SEM CPF
+// CRIAÇÃO DO PIX
 
 app.post("/api/pix/criar", async (req, res) => {
   let orderId = null;
@@ -402,8 +520,9 @@ app.post("/api/pix/criar", async (req, res) => {
     const nome = String(req.body?.nome || "").trim();
     const email = String(req.body?.email || "").trim().toLowerCase();
     const telefone = String(req.body?.telefone || "").replace(/\D/g, "");
+    const productId = String(req.body?.product_id || "");
 
-    if (!nome || !email || !telefone) {
+    if (!nome || !email || !telefone || !productId) {
       return res.status(400).json({
         erro: "Preencha nome, e-mail e telefone."
       });
@@ -417,8 +536,16 @@ app.post("/api/pix/criar", async (req, res) => {
       throw new Error("Chave Pix não configurada.");
     }
 
-    const settings = await getSettings();
+    const product = await getProductById(productId);
+    if (!product || !product.active) {
+      return res.status(404).json({ erro: "Produto não encontrado ou indisponível." });
+    }
+    const productPrice = Number(product.price);
+    if (!Number.isFinite(productPrice) || productPrice <= 0) {
+      throw new Error("Preço do produto inválido.");
+    }
 
+    // TXID com 32 caracteres alfanuméricos, aceito pela Efí.
     const txid = crypto.randomBytes(16).toString("hex");
 
     const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
@@ -429,8 +556,9 @@ app.post("/api/pix/criar", async (req, res) => {
         customer_name: nome,
         customer_email: email,
         customer_phone: telefone,
+        product_id: product.id,
         payment_method: "pix",
-        amount: Number(settings.price),
+        amount: productPrice,
         status: "pending",
         payment_id: txid,
         expires_at: expiresAt
@@ -448,7 +576,7 @@ app.post("/api/pix/criar", async (req, res) => {
       `${EFI_URL}/v2/cob/${txid}`,
       {
         calendario: { expiracao: 1800 },
-        valor: { original: settings.price },
+        valor: { original: productPrice.toFixed(2) },
         chave: env("EFI_PIX_KEY"),
         solicitacaoPagador: "Pagamento do produto digital"
       },
@@ -479,8 +607,8 @@ app.post("/api/pix/criar", async (req, res) => {
       sucesso: true,
       pedido_id: orderId,
       txid,
-      produto: settings.name,
-      valor: settings.price,
+      produto: product.name,
+      valor: productPrice.toFixed(2),
       expiracao_segundos: 1800,
       expira_em: expiresAt,
       pix_copia_e_cola: qr.data.qrcode,
@@ -520,7 +648,7 @@ app.post("/api/pedido/status", async (req, res) => {
 
     const { data: order, error } = await supabase
       .from("checkout_orders")
-      .select("id, customer_email, status, paid_at")
+      .select("id, customer_email, status, paid_at, product_id")
       .eq("id", orderId)
       .eq("customer_email", email)
       .maybeSingle();
@@ -536,7 +664,7 @@ app.post("/api/pedido/status", async (req, res) => {
     let accessUrl = null;
 
     if (order.status === "paid") {
-      const product = await getActiveProduct();
+      const product = await getProductById(order.product_id);
 
       if (product) {
         const { data: access, error: accessError } = await supabase
@@ -597,7 +725,7 @@ app.get("/api/meus-pedidos", async (req, res) => {
 
     const { data: pedidos, error: pedidosError } = await supabase
       .from("checkout_orders")
-      .select("id, amount, status, created_at, paid_at, payment_method")
+      .select("id, amount, status, created_at, paid_at, payment_method, product_id")
       .ilike("customer_email", email)
       .order("created_at", { ascending: false });
 
@@ -607,6 +735,7 @@ app.get("/api/meus-pedidos", async (req, res) => {
       return res.json({ pedidos: [] });
     }
 
+    // Cria acesso para pedidos pagos que ainda não tenham acesso.
     for (const pedido of pedidos) {
       if (pedido.status === "paid") {
         await createAccess(pedido);
@@ -623,7 +752,14 @@ app.get("/api/meus-pedidos", async (req, res) => {
 
     if (acessosError) throw acessosError;
 
-    const product = await getActiveProduct();
+    const productIds = [...new Set((acessos || []).map(a => a.product_id).filter(Boolean))];
+    let produtosPorId = {};
+    if (productIds.length) {
+      const { data: produtos, error: produtosError } = await supabase
+        .from("checkout_products").select("id, name").in("id", productIds);
+      if (produtosError) throw produtosError;
+      produtosPorId = Object.fromEntries((produtos || []).map(p => [p.id, p.name]));
+    }
     const agora = Date.now();
 
     const resultado = pedidos.map(pedido => {
@@ -637,7 +773,7 @@ app.get("/api/meus-pedidos", async (req, res) => {
             expira > agora;
 
           return {
-            produto: product?.name || "Produto digital",
+            produto: produtosPorId[acesso.product_id] || "Produto digital",
             expira_em: acesso.expires_at,
             ativo: valido,
             acesso: valido
@@ -810,8 +946,7 @@ app.get("/acesso/:token", async (req, res) => {
       return res.status(403).send("Acesso inválido ou expirado.");
     }
 
-    const settings = await getSettings();
-    const driveUrl = acesso.product?.drive_url || settings.driveUrl;
+    const driveUrl = acesso.product?.drive_url || null;
 
     if (!driveUrl) {
       return res.status(503).send(
