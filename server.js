@@ -88,8 +88,13 @@ async function getSettings() {
     .eq("id", 1)
     .single();
 
-  if (error || !data) {
-    throw new Error("Não foi possível carregar as configurações do produto.");
+  if (error) {
+    console.error("ERRO REAL DO SUPABASE:", error);
+    throw new Error(error.message);
+  }
+
+  if (!data) {
+    throw new Error("Nenhuma configuração encontrada com id 1.");
   }
 
   const price = Number(data.price);
