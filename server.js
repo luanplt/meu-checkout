@@ -2,13 +2,19 @@ import express from "express";
 import https from "https";
 import axios from "axios";
 import crypto from "crypto";
+import path from "path";
+import { fileURLToPath } from "url";
 import { createClient } from "@supabase/supabase-js";
 
 const app = express();
-app.use(express.json({ limit: "100kb" }));
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const PORT = process.env.PORT || 10000;
 const EFI_URL = "https://pix.api.efipay.com.br";
+
+app.use(express.json({ limit: "100kb" }));
+app.use(express.static(__dirname));
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -51,9 +57,7 @@ async function getToken() {
         username: env("EFI_CLIENT_ID"),
         password: env("EFI_CLIENT_SECRET")
       },
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers: { "Content-Type": "application/json" },
       timeout: 30000
     }
   );
@@ -91,18 +95,16 @@ async function getSettings() {
   };
 }
 
+// Abre a página do checkout.
 app.get("/", (req, res) => {
-  res.json({
-    status: "online",
-    service: "Meu Checkout"
-  });
+  res.sendFile(path.join(__dirname, "index.html"));
 });
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
 
-// Testa a autenticação sem criar cobrança.
+// Teste de autenticação da Efí.
 app.get("/efi/teste", async (req, res) => {
   try {
     await getToken();
@@ -125,7 +127,7 @@ app.get("/efi/teste", async (req, res) => {
   }
 });
 
-// Consulta as configurações públicas do produto.
+// Consulta produto e preço no Supabase.
 app.get("/api/produto", async (req, res) => {
   try {
     const settings = await getSettings();
@@ -137,13 +139,15 @@ app.get("/api/produto", async (req, res) => {
       intervalo_cartao: settings.billingInterval
     });
   } catch (error) {
+    console.error("Erro ao consultar produto:", error.message);
+
     res.status(500).json({
       erro: "Não foi possível carregar o produto."
     });
   }
 });
 
-// Cria cobrança Pix na Efí.
+// Criação de cobrança Pix.
 app.post("/api/pix/criar", async (req, res) => {
   let orderId = null;
 
@@ -163,16 +167,13 @@ app.post("/api/pix/criar", async (req, res) => {
     }
 
     if (cpf.length !== 11) {
-      return res.status(400).json({
-        erro: "CPF inválido."
-      });
+      return res.status(400).json({ erro: "CPF inválido." });
     }
 
     if (!env("EFI_PIX_KEY")) {
       throw new Error("Chave Pix não configurada no servidor.");
     }
 
-    // O preço sempre vem do banco, nunca do navegador.
     const settings = await getSettings();
 
     const txid = crypto.randomBytes(13).toString("hex");
@@ -180,7 +181,6 @@ app.post("/api/pix/criar", async (req, res) => {
       Date.now() + 30 * 60 * 1000
     ).toISOString();
 
-    // Primeiro registra o pedido.
     const { data: pedido, error: insertError } = await supabase
       .from("checkout_orders")
       .insert({
@@ -197,28 +197,18 @@ app.post("/api/pix/criar", async (req, res) => {
       .select("id")
       .single();
 
-    if (insertError) {
-      throw insertError;
-    }
+    if (insertError) throw insertError;
 
     orderId = pedido.id;
 
     const token = await getToken();
 
-    // Cria a cobrança imediata com validade de 30 minutos.
     const cobranca = await axios.put(
       `${EFI_URL}/v2/cob/${txid}`,
       {
-        calendario: {
-          expiracao: 1800
-        },
-        devedor: {
-          cpf,
-          nome
-        },
-        valor: {
-          original: settings.price
-        },
+        calendario: { expiracao: 1800 },
+        devedor: { cpf, nome },
+        valor: { original: settings.price },
         chave: env("EFI_PIX_KEY"),
         solicitacaoPagador: "Pagamento do produto digital"
       },
@@ -236,14 +226,11 @@ app.post("/api/pix/criar", async (req, res) => {
       throw new Error("A Efí não retornou o identificador do QR Code.");
     }
 
-    // Busca o QR Code e o Pix Copia e Cola.
     const qr = await axios.get(
       `${EFI_URL}/v2/loc/${cobranca.data.loc.id}/qrcode`,
       {
         httpsAgent: getAgent(),
-        headers: {
-          Authorization: `Bearer ${token}`
-        },
+        headers: { Authorization: `Bearer ${token}` },
         timeout: 30000
       }
     );
