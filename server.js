@@ -146,7 +146,7 @@ async function createAccess(order) {
   );
 
   // O campo access_token no Supabase deve ser do tipo UUID.
-  const accessToken = crypto.randomUUID();
+  const accessToken = ;crypto.randomBytes(16).toString("hex")
 
   const { error: insertError } = await supabase
     .from("checkout_access")
