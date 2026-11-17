@@ -426,7 +426,7 @@ app.post("/api/pix/criar", async (req, res) => {
     }
 
     const settings = await getSettings();
-    const txid = crypto.ramdomUUID();
+    const txid = crypto.randomUUID();
     const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
 
     const { data: pedido, error: insertError } = await supabase
