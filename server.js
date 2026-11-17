@@ -77,8 +77,7 @@ async function getToken() {
   );
 
   tokenCache = response.data.access_token;
-  tokenExpiresAt =
-    Date.now() + Math.max(60, Number(response.data.expires_in || 300) - 60) * 1000;
+  tokenExpiresAt = Date.now() + Math.max(60, response.data.expires_in - 60) * 1000;
 
   return tokenCache;
 }
@@ -122,11 +121,7 @@ async function getActiveProduct() {
   return data;
 }
 
-// Cria ou recupera o acesso do pedido pago.
-// O token é UUID para ser compatível com a coluna access_token.
 async function createAccess(order) {
-  if (!order?.id) throw new Error("Pedido sem ID válido.");
-
   const product = await getActiveProduct();
 
   if (!product) {
@@ -147,9 +142,10 @@ async function createAccess(order) {
   const settings = await getSettings();
   const paidAt = order.paid_at ? new Date(order.paid_at) : new Date();
   const expiresAt = new Date(
-    paidAt.getTime() + settings.accessDays * 24 * 60 * 60 * 1000
+    paidAt.getTime() + settings.accessDays * 86400000
   );
 
+  // O campo access_token no Supabase deve ser do tipo UUID.
   const accessToken = crypto.randomUUID();
 
   const { error: insertError } = await supabase
@@ -164,14 +160,13 @@ async function createAccess(order) {
 
   if (insertError) {
     if (insertError.code === "23505") {
-      const { data: duplicate, error: duplicateError } = await supabase
+      const { data: duplicate } = await supabase
         .from("checkout_access")
         .select("access_token")
         .eq("order_id", order.id)
         .eq("product_id", product.id)
         .maybeSingle();
 
-      if (duplicateError) throw duplicateError;
       return duplicate?.access_token || null;
     }
 
@@ -219,28 +214,15 @@ async function requireAdmin(req, res, next) {
   }
 }
 
-// Atualiza o produto sem gravar NULL em drive_url.
-async function saveProductRow(name, requestedDriveUrl) {
+async function saveProductRow(name, driveUrl) {
   const { data: current, error: readError } = await supabase
     .from("checkout_products")
-    .select("id, drive_url")
+    .select("id")
     .eq("active", true)
     .limit(1)
     .maybeSingle();
 
   if (readError) throw readError;
-
-  const settings = await getSettings();
-  const driveUrl =
-    requestedDriveUrl ||
-    current?.drive_url ||
-    settings.driveUrl;
-
-  if (!driveUrl) {
-    throw new Error(
-      "Cadastre um link do Google Drive antes de salvar o produto."
-    );
-  }
 
   if (current?.id) {
     const { error } = await supabase
@@ -266,8 +248,6 @@ async function saveProductRow(name, requestedDriveUrl) {
 
     if (error) throw error;
   }
-
-  return driveUrl;
 }
 
 app.get("/", (req, res) => {
@@ -295,6 +275,7 @@ app.get("/efi/teste", async (req, res) => {
     });
   } catch (error) {
     console.error("Erro Efí:", error.response?.data || error.message);
+
     res.status(502).json({
       status: "erro",
       codigo: error.response?.status || error.code || "CONEXAO",
@@ -324,7 +305,8 @@ app.get("/api/produto", async (req, res) => {
   }
 });
 
-// Painel administrativo: carregar configurações.
+// PAINEL ADMINISTRATIVO
+
 app.get("/api/admin/config", requireAdmin, async (req, res) => {
   try {
     const settings = await getSettings();
@@ -337,11 +319,10 @@ app.get("/api/admin/config", requireAdmin, async (req, res) => {
   }
 });
 
-// Painel administrativo: salvar configurações.
 app.put("/api/admin/config", requireAdmin, async (req, res) => {
   try {
     const name = String(req.body?.name || "").trim();
-    const requestedDriveUrl = String(req.body?.driveUrl || "").trim();
+    const driveUrl = String(req.body?.driveUrl || "").trim();
     const price = Number(req.body?.price);
     const accessDays = Number(req.body?.accessDays);
 
@@ -355,7 +336,7 @@ app.put("/api/admin/config", requireAdmin, async (req, res) => {
 
     const galleryUrls = Array.isArray(req.body?.galleryUrls)
       ? req.body.galleryUrls
-          .filter(value => typeof value === "string")
+          .filter(v => typeof v === "string")
           .slice(0, 20)
       : [];
 
@@ -371,37 +352,15 @@ app.put("/api/admin/config", requireAdmin, async (req, res) => {
       });
     }
 
-    if (
-      !Number.isInteger(accessDays) ||
-      accessDays < 1 ||
-      accessDays > 3650
-    ) {
+    if (!Number.isInteger(accessDays) || accessDays < 1 || accessDays > 3650) {
       return res.status(400).json({
         erro: "Informe uma validade entre 1 e 3650 dias."
       });
     }
 
-    if (
-      requestedDriveUrl &&
-      !/^https:\/\/(drive\.google\.com|docs\.google\.com)\//i.test(
-        requestedDriveUrl
-      )
-    ) {
+    if (driveUrl && !/^https:\/\/(drive\.google\.com|docs\.google\.com)\//i.test(driveUrl)) {
       return res.status(400).json({
         erro: "Use um link válido do Google Drive."
-      });
-    }
-
-    const currentSettings = await getSettings();
-    const product = await getActiveProduct();
-    const finalDriveUrl =
-      requestedDriveUrl ||
-      product?.drive_url ||
-      currentSettings.driveUrl;
-
-    if (!finalDriveUrl) {
-      return res.status(400).json({
-        erro: "Informe o link do Google Drive do produto."
       });
     }
 
@@ -409,47 +368,42 @@ app.put("/api/admin/config", requireAdmin, async (req, res) => {
       product_name: name,
       price: price.toFixed(2),
       pix_access_days: accessDays,
-      drive_url: finalDriveUrl,
+      drive_url: driveUrl || null,
       cover_url: coverUrl,
       gallery_urls: galleryUrls,
       background_url: backgroundUrl,
       updated_at: new Date().toISOString()
     };
 
-    const { error: settingsError } = await supabase
+    const { error } = await supabase
       .from("checkout_settings")
       .update(updates)
       .eq("id", 1);
 
-    if (settingsError) throw settingsError;
+    if (error) throw error;
 
-    await saveProductRow(name, finalDriveUrl);
+    await saveProductRow(name, driveUrl || null);
 
     res.json({
       sucesso: true,
       mensagem: "Configurações salvas."
     });
   } catch (error) {
-    console.error(
-      "Erro ao salvar configurações:",
-      error.message || error
-    );
-
+    console.error("Erro ao salvar configurações:", error.message);
     res.status(500).json({
-      erro: `Erro ao salvar configurações: ${error.message || "erro interno"}.`
+      erro: "Não foi possível salvar. Confira as permissões das tabelas."
     });
   }
 });
 
-// Criação da cobrança Pix.
+// CRIAÇÃO DO PIX
+
 app.post("/api/pix/criar", async (req, res) => {
   let orderId = null;
 
   try {
     const nome = String(req.body?.nome || "").trim();
-    const email = String(req.body?.email || "")
-      .trim()
-      .toLowerCase();
+    const email = String(req.body?.email || "").trim().toLowerCase();
     const cpf = String(req.body?.cpf || "").replace(/\D/g, "");
     const telefone = String(req.body?.telefone || "").replace(/\D/g, "");
 
@@ -473,9 +427,7 @@ app.post("/api/pix/criar", async (req, res) => {
 
     const settings = await getSettings();
     const txid = crypto.randomBytes(13).toString("hex");
-    const expiresAt = new Date(
-      Date.now() + 30 * 60 * 1000
-    ).toISOString();
+    const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
 
     const { data: pedido, error: insertError } = await supabase
       .from("checkout_orders")
@@ -494,6 +446,7 @@ app.post("/api/pix/criar", async (req, res) => {
       .single();
 
     if (insertError) throw insertError;
+
     orderId = pedido.id;
 
     const token = await getToken();
@@ -543,10 +496,7 @@ app.post("/api/pix/criar", async (req, res) => {
       link_visualizacao: qr.data.linkVisualizacao
     });
   } catch (error) {
-    console.error(
-      "Erro ao criar Pix:",
-      error.response?.data || error.message
-    );
+    console.error("Erro ao criar Pix:", error.response?.data || error.message);
 
     if (orderId) {
       await supabase
@@ -558,20 +508,17 @@ app.post("/api/pix/criar", async (req, res) => {
     res.status(500).json({
       sucesso: false,
       erro: "Não foi possível gerar o Pix.",
-      detalhe:
-        error.response?.data?.mensagem ||
-        error.message
+      detalhe: error.response?.data?.mensagem || error.message
     });
   }
 });
 
-// Consulta do pedido e criação automática do acesso para pedidos já pagos.
+// CONSULTA DO STATUS DO PEDIDO
+
 app.post("/api/pedido/status", async (req, res) => {
   try {
-    const orderId = String(req.body?.pedido_id || "").trim();
-    const email = String(req.body?.email || "")
-      .trim()
-      .toLowerCase();
+    const orderId = String(req.body?.pedido_id || "");
+    const email = String(req.body?.email || "").trim().toLowerCase();
 
     if (!orderId || !email) {
       return res.status(400).json({
@@ -597,23 +544,20 @@ app.post("/api/pedido/status", async (req, res) => {
     let accessUrl = null;
 
     if (order.status === "paid") {
-      const accessToken = await createAccess(order);
+      const product = await getActiveProduct();
 
-      if (accessToken) {
+      if (product) {
         const { data: access, error: accessError } = await supabase
           .from("checkout_access")
-          .select("expires_at")
+          .select("access_token, expires_at")
           .eq("order_id", order.id)
-          .eq("access_token", accessToken)
+          .eq("product_id", product.id)
           .maybeSingle();
 
         if (accessError) throw accessError;
 
-        if (
-          access &&
-          new Date(access.expires_at).getTime() > Date.now()
-        ) {
-          accessUrl = `${RENDER_URL}/acesso/${accessToken}`;
+        if (access && new Date(access.expires_at) > new Date()) {
+          accessUrl = `${RENDER_URL}/acesso/${access.access_token}`;
         }
       }
     }
@@ -630,12 +574,13 @@ app.post("/api/pedido/status", async (req, res) => {
   }
 });
 
-/* HISTÓRICO DE COMPRAS DO CLIENTE
-   Exige sessão autenticada pelo código enviado ao e-mail.
-*/
+// HISTÓRICO DE COMPRAS
+// Só permite consultar após autenticação pelo Supabase Auth.
+
 app.get("/api/meus-pedidos", async (req, res) => {
   try {
     const authorization = String(req.headers.authorization || "");
+
     const jwt = authorization.startsWith("Bearer ")
       ? authorization.slice(7)
       : "";
@@ -651,11 +596,13 @@ app.get("/api/meus-pedidos", async (req, res) => {
 
     if (authError || !authData?.user?.email) {
       return res.status(401).json({
-        erro: "Código inválido ou sessão expirada. Confirme seu e-mail novamente."
+        erro: "Sessão inválida ou expirada. Confirme seu e-mail novamente."
       });
     }
 
-    const email = String(authData.user.email).trim().toLowerCase();
+    const email = String(authData.user.email)
+      .trim()
+      .toLowerCase();
 
     const { data: pedidos, error: pedidosError } = await supabase
       .from("checkout_orders")
@@ -669,21 +616,24 @@ app.get("/api/meus-pedidos", async (req, res) => {
       return res.json({ pedidos: [] });
     }
 
+    // Garante que pedidos pagos tenham acesso criado.
+    for (const pedido of pedidos) {
+      if (pedido.status === "paid") {
+        await createAccess(pedido);
+      }
+    }
+
     const ids = pedidos.map(pedido => pedido.id);
 
     const { data: acessos, error: acessosError } = await supabase
       .from("checkout_access")
-      .select(`
-        order_id,
-        access_token,
-        expires_at,
-        product:checkout_products(name)
-      `)
-      .eq("customer_email", email)
+      .select("order_id, access_token, expires_at, product_id")
+      .ilike("customer_email", email)
       .in("order_id", ids);
 
     if (acessosError) throw acessosError;
 
+    const product = await getActiveProduct();
     const agora = Date.now();
 
     const resultado = pedidos.map(pedido => {
@@ -691,10 +641,13 @@ app.get("/api/meus-pedidos", async (req, res) => {
         .filter(acesso => acesso.order_id === pedido.id)
         .map(acesso => {
           const expira = new Date(acesso.expires_at).getTime();
-          const valido = expira > agora && pedido.status === "paid";
+          const valido =
+            pedido.status === "paid" &&
+            Number.isFinite(expira) &&
+            expira > agora;
 
           return {
-            produto: acesso.product?.name || "Produto digital",
+            produto: product?.name || "Produto digital",
             expira_em: acesso.expires_at,
             ativo: valido,
             acesso: valido
@@ -714,7 +667,6 @@ app.get("/api/meus-pedidos", async (req, res) => {
     });
 
     return res.json({ pedidos: resultado });
-
   } catch (error) {
     console.error("Erro ao consultar histórico:", error.message);
 
@@ -724,7 +676,8 @@ app.get("/api/meus-pedidos", async (req, res) => {
   }
 });
 
-// Webhook Pix da Efí.
+// WEBHOOK PIX DA EFÍ
+
 app.post("/webhook", async (req, res) => {
   try {
     const recebido = String(req.query.hmac || "");
@@ -733,10 +686,7 @@ app.post("/webhook", async (req, res) => {
     if (
       !esperado ||
       recebido.length !== esperado.length ||
-      !crypto.timingSafeEqual(
-        Buffer.from(recebido),
-        Buffer.from(esperado)
-      )
+      !crypto.timingSafeEqual(Buffer.from(recebido), Buffer.from(esperado))
     ) {
       return res.sendStatus(401);
     }
@@ -791,8 +741,7 @@ app.post("/webhook", async (req, res) => {
       if (
         cobranca.status !== "CONCLUIDA" ||
         Math.abs(
-          Number(cobranca.valor?.original) -
-          Number(pedido.amount)
+          Number(cobranca.valor?.original) - Number(pedido.amount)
         ) > 0.001
       ) {
         continue;
@@ -831,19 +780,7 @@ app.post("/webhook", async (req, res) => {
       }
 
       if (pedidoAtualizado.status === "paid") {
-        const createdToken = await createAccess(pedidoAtualizado);
-
-        if (createdToken) {
-          console.log(
-            "Pedido pago e acesso disponível:",
-            pedidoAtualizado.id
-          );
-        } else {
-          console.error(
-            "Pedido pago, mas não foi possível criar o acesso:",
-            pedidoAtualizado.id
-          );
-        }
+        await createAccess(pedidoAtualizado);
       }
     }
 
@@ -853,11 +790,13 @@ app.post("/webhook", async (req, res) => {
       "Erro no webhook Pix:",
       error.response?.data || error.message
     );
+
     return res.sendStatus(500);
   }
 });
 
-// Link de acesso: só entrega o Drive se o pedido estiver pago e dentro da validade.
+// LIBERAÇÃO DO PRODUTO
+
 app.get("/acesso/:token", async (req, res) => {
   try {
     const { data: acesso, error } = await supabase
@@ -876,15 +815,13 @@ app.get("/acesso/:token", async (req, res) => {
     if (
       !acesso ||
       acesso.pedido?.status !== "paid" ||
-      new Date(acesso.expires_at).getTime() <= Date.now()
+      new Date(acesso.expires_at) <= new Date()
     ) {
       return res.status(403).send("Acesso inválido ou expirado.");
     }
 
     const settings = await getSettings();
-    const driveUrl =
-      acesso.product?.drive_url ||
-      settings.driveUrl;
+    const driveUrl = acesso.product?.drive_url || settings.driveUrl;
 
     if (!driveUrl) {
       return res.status(503).send(
@@ -895,11 +832,11 @@ app.get("/acesso/:token", async (req, res) => {
     return res.redirect(302, driveUrl);
   } catch (error) {
     console.error("Erro ao liberar acesso:", error.message);
-    return res.status(500).send(
-      "Não foi possível liberar o acesso."
-    );
+    return res.status(500).send("Não foi possível liberar o acesso.");
   }
 });
+
+// CADASTRO DO WEBHOOK NA EFÍ
 
 async function registerWebhook() {
   try {
@@ -907,9 +844,7 @@ async function registerWebhook() {
     const pixKey = env("EFI_PIX_KEY");
 
     if (!secret || !pixKey) {
-      console.log(
-        "Webhook Pix não cadastrado: faltam variáveis."
-      );
+      console.log("Webhook Pix não cadastrado: faltam variáveis.");
       return;
     }
 
