@@ -6,45 +6,159 @@
 <title>Meu Checkout</title>
 
 <style>
-:root{--ink:#171717;--paper:#f7f5f2;--accent:#b18b68;--muted:#777}
+:root{
+  --ink:#171717;
+  --paper:#f7f5f2;
+  --accent:#b18b68;
+  --muted:#777;
+}
 *{box-sizing:border-box}
-body{margin:0;padding:22px 14px;background:var(--paper);color:var(--ink);font-family:Arial,sans-serif;min-height:100vh}
-body.com-fundo{background-size:cover;background-position:center;background-attachment:fixed}
-.wrap{max-width:520px;margin:22px auto;background:#fff;border-radius:18px;padding:24px;box-shadow:0 8px 35px #00000012}
+body{
+  margin:0;padding:22px 14px;
+  background:var(--paper);color:var(--ink);
+  font-family:Arial,sans-serif;min-height:100vh
+}
+body.com-fundo{
+  background-size:cover;
+  background-position:center;
+  background-attachment:fixed
+}
+.wrap{
+  max-width:520px;margin:22px auto;
+  background:#fff;border-radius:18px;
+  padding:24px;box-shadow:0 8px 35px #00000012
+}
 h1{font-size:25px;text-align:center;margin:5px 0 18px}
 h2{font-size:20px}
 h3{font-size:18px}
-#capa{display:none;width:100%;max-height:250px;object-fit:cover;border-radius:12px;margin:0 auto 18px}
-#galeria{display:flex;gap:8px;overflow-x:auto;margin:12px 0}
-#galeria img{width:90px;height:75px;object-fit:cover;border-radius:8px}
-.price{text-align:center;font-size:30px;font-weight:800;margin:12px 0}
-.sub{text-align:center;color:var(--muted);font-size:14px}
-label{display:block;font-size:14px;font-weight:700;margin:13px 0 6px}
-input{width:100%;padding:13px;border:1px solid #d7d7d7;border-radius:9px;font-size:16px;background:#fff}
-button{width:100%;border:0;border-radius:9px;padding:14px;margin-top:14px;background:var(--ink);color:#fff;font-size:16px;font-weight:700;cursor:pointer}
+label{
+  display:block;font-size:14px;font-weight:700;
+  margin:13px 0 6px
+}
+input{
+  width:100%;padding:13px;
+  border:1px solid #d7d7d7;border-radius:9px;
+  font-size:16px;background:#fff
+}
+input[type=file]{
+  padding:12px;background:#fafafa;
+  cursor:pointer
+}
+input[type=checkbox]{width:auto}
+button{
+  width:100%;border:0;border-radius:9px;
+  padding:14px;margin-top:14px;
+  background:var(--ink);color:#fff;
+  font-size:16px;font-weight:700;cursor:pointer
+}
 button:disabled{opacity:.55;cursor:wait}
-#resultado{margin-top:18px;text-align:center;overflow-wrap:anywhere}
-#qrcode{display:block;max-width:230px;width:100%;margin:14px auto}
-#codigoPix{padding:12px;background:#f2f2f2;border-radius:8px;font-size:13px;overflow-wrap:anywhere;text-align:left}
-.aviso{font-size:12px;color:var(--muted);text-align:center;line-height:1.5;margin-top:18px}
-.erro{color:#b42318}.sucesso{color:#167344}
-.link-acesso{display:block;padding:15px;border-radius:9px;background:#167344;color:white;text-decoration:none;font-weight:bold;margin-top:14px;text-align:center}
-.admin-link{display:block;text-align:center;margin:20px auto 0;color:#777;font-size:12px;text-decoration:none}
+button.btn-sec{background:#eee;color:#222}
+.hidden{display:none!important}
+.sub{
+  text-align:center;color:var(--muted);
+  font-size:14px;line-height:1.5
+}
+.price{
+  text-align:center;font-size:30px;
+  font-weight:800;margin:12px 0
+}
+#capa{
+  display:none;width:100%;max-height:300px;
+  object-fit:cover;border-radius:12px;
+  margin:0 auto 18px
+}
+#galeria{
+  display:flex;gap:9px;overflow-x:auto;
+  margin:12px 0;padding-bottom:5px
+}
+#galeria img{
+  width:105px;height:90px;
+  object-fit:cover;border-radius:9px;
+  flex-shrink:0
+}
+.vitrine-grid{display:grid;grid-template-columns:1fr;gap:20px}
+.produto-card{
+  border:1px solid #eee;border-radius:13px;
+  padding:12px;background:#fff;overflow:hidden
+}
+.produto-card img{
+  display:block;width:100%;height:220px;
+  object-fit:cover;border-radius:9px;
+  margin-bottom:12px;background:#f3f3f3
+}
+.produto-card h3{font-size:20px;margin:10px 0}
+.produto-card .valor{
+  font-size:24px;font-weight:800;margin:12px 0
+}
+.produto-card small{color:#777;font-size:14px}
+#resultado{
+  margin-top:18px;text-align:center;
+  overflow-wrap:anywhere
+}
+#qrcode{
+  display:block;max-width:230px;
+  width:100%;margin:14px auto
+}
+#codigoPix{
+  padding:12px;background:#f2f2f2;
+  border-radius:8px;font-size:13px;
+  overflow-wrap:anywhere;text-align:left
+}
+.aviso{
+  font-size:12px;color:var(--muted);
+  text-align:center;line-height:1.5;margin-top:18px
+}
+.erro{color:#b42318}
+.sucesso{color:#167344}
+.link-acesso{
+  display:block;padding:15px;border-radius:9px;
+  background:#167344;color:white;
+  text-decoration:none;font-weight:bold;
+  margin-top:14px;text-align:center
+}
+.admin-link{
+  display:block;text-align:center;
+  margin:20px auto 0;color:#777;
+  font-size:12px;text-decoration:none
+}
 .admin{max-width:720px}
 .admin h2{font-size:20px;margin-top:22px}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid{
+  display:grid;grid-template-columns:1fr 1fr;
+  gap:12px
+}
 .grid .full{grid-column:1/-1}
-.separador{border:0;border-top:1px solid #eee;margin:22px 0}
-.preview{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
-.preview img{width:80px;height:70px;object-fit:cover;border-radius:7px}
-.btn-sec{background:#eee;color:#222}
-.hidden{display:none!important}
-.pedido{border:1px solid #e5e5e5;border-radius:12px;padding:15px;margin-top:13px;text-align:left;overflow-wrap:anywhere}
+.separador{
+  border:0;border-top:1px solid #eee;
+  margin:22px 0
+}
+.preview{
+  display:flex;gap:8px;flex-wrap:wrap;
+  margin-top:10px
+}
+.preview img{
+  width:90px;height:80px;
+  object-fit:cover;border-radius:8px
+}
+.pedido{
+  border:1px solid #e5e5e5;border-radius:12px;
+  padding:15px;margin-top:13px;
+  text-align:left;overflow-wrap:anywhere
+}
 .pedido p{font-size:14px;line-height:1.5;margin:7px 0}
-.pedido .link-acesso{margin-top:12px}
+.admin-produto{
+  border:1px solid #eee;border-radius:12px;
+  padding:14px;margin-top:14px
+}
+.admin-produto strong{font-size:17px}
 .historico-acoes{display:flex;gap:8px}
-.historico-acoes button{flex:1}
-@media(max-width:520px){.wrap{padding:19px}.grid{grid-template-columns:1fr}.historico-acoes{display:block}}
+@media(max-width:520px){
+  .wrap{padding:19px}
+  .grid{grid-template-columns:1fr}
+  .grid .full{grid-column:auto}
+  .historico-acoes{display:block}
+  .produto-card img{height:210px}
+}
 </style>
 </head>
 
@@ -52,213 +166,202 @@ button:disabled{opacity:.55;cursor:wait}
 
 <main class="wrap" id="checkout">
 
-  <section id="vitrineBox">
-    <h1>meus produtos</h1>
-    <p class="sub">Escolha o produto que deseja adquirir.</p>
-    <div id="vitrine" class="vitrine-grid"></div>
-  </section>
+<section id="vitrineBox">
+<h1>Meus produtos</h1>
+<p class="sub">Escolha o produto que deseja adquirir.</p>
+<div id="vitrine" class="vitrine-grid"></div>
+</section>
 
-  <section id="produtoDetalhe" class="hidden">
-    <button type="button" class="btn-sec" id="voltarVitrine">← Voltar à vitrine</button>
-    <img id="capa" alt="Capa do produto">
+<section id="produtoDetalhe" class="hidden">
 
-  <h1 id="nomeProduto">Carregando produto...</h1>
+<button type="button" class="btn-sec" id="voltarVitrine">← Voltar à vitrine</button>
 
-  <div id="galeria"></div>
+<img id="capa" alt="Capa do produto">
 
-  <div class="price" id="preco">...</div>
+<h1 id="nomeProduto">Carregando produto...</h1>
+<div id="galeria"></div>
+<div class="price" id="preco">...</div>
 
-  <p class="sub" id="validade">Pagamento via Pix • Acesso conforme a validade do produto</p>
+<p class="sub" id="validade">Pagamento via Pix</p>
 
-  <form id="formulario">
+<form id="formulario">
 
-    <label for="nome">Nome completo</label>
-    <input id="nome" required autocomplete="name">
+<label for="nome">Nome completo</label>
+<input id="nome" required autocomplete="name">
 
-    <label for="email">E-mail</label>
-    <input id="email" type="email" required autocomplete="email">
+<label for="email">E-mail</label>
+<input id="email" type="email" required autocomplete="email">
 
-    <label for="telefone">Celular</label>
-    <input id="telefone" required inputmode="tel" autocomplete="tel" placeholder="(00) 00000-0000">
+<label for="telefone">Celular</label>
+<input id="telefone" required inputmode="tel" autocomplete="tel" placeholder="(00) 00000-0000">
 
-    <button id="botao" type="submit">Gerar Pix</button>
+<button id="botao" type="submit">Gerar Pix</button>
 
-  </form>
+</form>
 
-  <div id="resultado" aria-live="polite"></div>
+<div id="resultado" aria-live="polite"></div>
 
-  <p class="aviso">
-    O acesso é liberado após a confirmação do pagamento.
-    Guarde o e-mail utilizado na compra para consultar seus pedidos.
-  </p>
+<p class="aviso">
+O acesso é liberado após a confirmação do pagamento.
+Guarde o e-mail utilizado na compra para consultar seus pedidos.
+</p>
 
-  </section>
+</section>
 
-  <button type="button" class="btn-sec" id="abrirHistorico">
-    Meus pedidos
-  </button>
+<button type="button" class="btn-sec" id="abrirHistorico">Meus pedidos</button>
 
-  <section id="historicoBox" class="hidden">
+<section id="historicoBox" class="hidden">
 
-    <hr class="separador">
+<hr class="separador">
+<h2>Meus pedidos</h2>
 
-    <h2>Meus pedidos</h2>
+<p class="sub">
+Informe o e-mail utilizado na compra para consultar seus pedidos.
+</p>
 
-    <p class="sub">
-      Informe o e-mail utilizado na compra. Enviaremos um link de confirmação para você consultar seus pedidos.
-    </p>
+<div id="historicoLogin">
+<label for="historicoEmail">Seu e-mail</label>
+<input id="historicoEmail" type="email" placeholder="seuemail@exemplo.com">
 
-    <div id="historicoLogin">
+<button type="button" id="enviarLink">Enviar link de confirmação</button>
+<div id="historicoMsg" aria-live="polite"></div>
+</div>
 
-      <label for="historicoEmail">Seu e-mail</label>
-      <input id="historicoEmail" type="email" autocomplete="email" placeholder="seuemail@exemplo.com">
+<div id="historicoPedidos" class="hidden">
+<p class="sucesso" id="historicoIdentificado">E-mail confirmado.</p>
+<div id="listaPedidos"></div>
+<button type="button" class="btn-sec" id="atualizarPedidos">Atualizar pedidos</button>
+<button type="button" class="btn-sec" id="sairHistorico">Sair da consulta</button>
+</div>
 
-      <button type="button" id="enviarLink">
-        Enviar link de confirmação
-      </button>
+<button type="button" class="btn-sec" id="fecharHistorico">Fechar</button>
+</section>
 
-      <div id="historicoMsg" aria-live="polite"></div>
-
-    </div>
-
-    <div id="historicoPedidos" class="hidden">
-
-      <p class="sucesso" id="historicoIdentificado">
-        E-mail confirmado.
-      </p>
-
-      <div id="listaPedidos"></div>
-
-      <button type="button" class="btn-sec" id="atualizarPedidos">
-        Atualizar pedidos
-      </button>
-
-      <button type="button" class="btn-sec" id="sairHistorico">
-        Sair da consulta
-      </button>
-
-    </div>
-
-    <button type="button" class="btn-sec" id="fecharHistorico">
-      Fechar
-    </button>
-
-  </section>
-
-  <a class="admin-link" href="#admin" id="abrirAdmin">
-    Área administrativa
-  </a>
+<a class="admin-link" href="#admin" id="abrirAdmin">Área administrativa</a>
 
 </main>
 
 <section class="wrap admin hidden" id="admin">
 
-  <h1>Painel administrativo</h1>
+<h1>Painel administrativo</h1>
 
-  <div id="loginBox">
+<div id="loginBox">
+<p class="sub">Entre com o usuário administrador cadastrado no Supabase.</p>
 
-    <p class="sub">Entre com o usuário administrador cadastrado no Supabase.</p>
+<label for="adminEmail">E-mail</label>
+<input id="adminEmail" type="email" autocomplete="username">
 
-    <label for="adminEmail">E-mail</label>
-    <input id="adminEmail" type="email" autocomplete="username">
+<label for="adminSenha">Senha</label>
+<input id="adminSenha" type="password" autocomplete="current-password">
 
-    <label for="adminSenha">Senha</label>
-    <input id="adminSenha" type="password" autocomplete="current-password">
+<button id="entrar">Entrar</button>
+<button class="btn-sec" id="voltarLogin">Voltar à loja</button>
+<div id="loginMsg"></div>
+</div>
 
-    <button id="entrar">Entrar</button>
+<div id="painelBox" class="hidden">
 
-    <button class="btn-sec" id="voltarLogin">Voltar à loja</button>
+<h2>Gerenciar vitrine (até 5 produtos)</h2>
+<p class="sub">Cadastre produtos com preço, validade, fotos e link de acesso.</p>
 
-    <div id="loginMsg"></div>
+<div id="adminListaProdutos"></div>
 
-  </div>
+<div class="admin-produto">
 
-  <div id="painelBox" class="hidden">
+<h3 id="tituloFormularioProduto">Adicionar produto</h3>
 
-    <h2>Gerenciar vitrine (até 5 produtos)</h2>
-    <p class="sub">Cadastre até cinco produtos. Cada um terá preço, prazo e link de acesso próprios.</p>
-    <div id="adminListaProdutos"></div>
-    <div class="admin-produto">
-      <h3 id="tituloFormularioProduto">Adicionar produto</h3>
-      <label for="admProdutoNome">Nome do produto</label>
-      <input id="admProdutoNome" placeholder="Nome que aparecerá na vitrine">
-      <div class="grid">
-        <div>
-          <label for="admProdutoPreco">Preço (R$)</label>
-          <input id="admProdutoPreco" type="number" min="0.01" step="0.01">
-        </div>
-        <div>
-          <label for="admProdutoDias">Dias de acesso</label>
-          <input id="admProdutoDias" type="number" min="1" step="1" value="30">
-        </div>
-      </div>
-      <label for="admProdutoDrive">Link do Google Drive</label>
-      <input id="admProdutoDrive" type="url" placeholder="https://drive.google.com/...">
-      <label for="admProdutoCapa">URL da imagem de capa (opcional)</label>
-      <input id="admProdutoCapa" type="url" placeholder="https://...">
-      <label for="admProdutoAtivo">Produto ativo na vitrine</label>
-      <input id="admProdutoAtivo" type="checkbox" checked style="width:auto">
-      <button id="salvarProdutoAdmin" type="button">Cadastrar produto</button>
-      <button id="cancelarEdicaoProduto" type="button" class="btn-sec">Limpar formulário</button>
-      <div id="adminProdutosMsg" aria-live="polite"></div>
-    </div>
+<label for="admProdutoNome">Nome do produto</label>
+<input id="admProdutoNome" placeholder="Nome que aparecerá na vitrine">
 
-    <hr class="separador">
-    <h2>Configurações antigas do produto principal</h2>
-    <p class="sub">A seção abaixo permanece para compatibilidade com suas configurações anteriores.</p>
+<div class="grid">
+<div>
+<label for="admProdutoPreco">Preço (R$)</label>
+<input id="admProdutoPreco" type="number" min="0.01" step="0.01">
+</div>
 
-    <p class="sub">
-      Edite o produto e salve as alterações para atualizar a página pública.
-    </p>
+<div>
+<label for="admProdutoDias">Dias de acesso</label>
+<input id="admProdutoDias" type="number" min="1" step="1" value="30">
+</div>
+</div>
 
-    <div class="grid">
+<label for="admProdutoDrive">Link do Google Drive (entrega do produto)</label>
+<input id="admProdutoDrive" type="url" placeholder="https://drive.google.com/...">
 
-      <div class="full">
-        <label for="pNome">Nome do produto</label>
-        <input id="pNome">
-      </div>
+<hr class="separador">
 
-      <div>
-        <label for="pPreco">Preço (R$)</label>
-        <input id="pPreco" type="number" min="0.01" step="0.01">
-      </div>
+<h3>Fotos do produto</h3>
 
-      <div>
-        <label for="pDias">Dias de acesso Pix</label>
-        <input id="pDias" type="number" min="1" step="1">
-      </div>
+<label for="admProdutoCapa">Foto de capa</label>
+<input id="admProdutoCapa" type="file" accept="image/*">
+<p class="sub">Escolha uma foto diretamente da galeria do celular.</p>
+<div class="preview" id="previewCapaProduto"></div>
 
-      <div class="full">
-        <label for="pDrive">Link do Google Drive</label>
-        <input id="pDrive" type="url" placeholder="https://drive.google.com/...">
-      </div>
+<label for="admProdutoGaleria">Galeria de fotos</label>
+<input id="admProdutoGaleria" type="file" accept="image/*" multiple>
+<p class="sub">Você pode selecionar várias fotos de uma vez.</p>
+<div class="preview" id="previewGaleriaProduto"></div>
 
-    </div>
+<label for="admProdutoAtivo">Produto ativo na vitrine</label>
+<input id="admProdutoAtivo" type="checkbox" checked>
 
-    <hr class="separador">
+<button id="salvarProdutoAdmin" type="button">Cadastrar produto</button>
+<button id="cancelarEdicaoProduto" type="button" class="btn-sec">Limpar formulário</button>
 
-    <h2>Imagens do produto</h2>
+<div id="adminProdutosMsg" aria-live="polite"></div>
 
-    <label for="pCapa">Foto de capa</label>
-    <input id="pCapa" type="file" accept="image/*">
-    <div class="preview" id="prevCapa"></div>
+</div>
 
-    <label for="pGaleria">Galeria (selecione várias fotos)</label>
-    <input id="pGaleria" type="file" accept="image/*" multiple>
-    <div class="preview" id="prevGaleria"></div>
+<hr class="separador">
 
-    <label for="pFundo">Foto de fundo</label>
-    <input id="pFundo" type="file" accept="image/*">
-    <div class="preview" id="prevFundo"></div>
+<h2>Configurações antigas do produto principal</h2>
+<p class="sub">Compatibilidade com suas configurações anteriores.</p>
 
-    <button id="salvar">Salvar configurações</button>
+<div class="grid">
 
-    <button class="btn-sec" id="sair">Sair do painel</button>
+<div class="full">
+<label for="pNome">Nome do produto</label>
+<input id="pNome">
+</div>
 
-    <div id="adminMsg"></div>
+<div>
+<label for="pPreco">Preço (R$)</label>
+<input id="pPreco" type="number" min="0.01" step="0.01">
+</div>
 
-  </div>
+<div>
+<label for="pDias">Dias de acesso Pix</label>
+<input id="pDias" type="number" min="1" step="1">
+</div>
 
+<div class="full">
+<label for="pDrive">Link do Google Drive</label>
+<input id="pDrive" type="url">
+</div>
+
+</div>
+
+<hr class="separador">
+
+<h2>Imagens do produto principal</h2>
+
+<label for="pCapa">Foto de capa</label>
+<input id="pCapa" type="file" accept="image/*">
+<div class="preview" id="prevCapa"></div>
+
+<label for="pGaleria">Galeria (várias fotos)</label>
+<input id="pGaleria" type="file" accept="image/*" multiple>
+<div class="preview" id="prevGaleria"></div>
+
+<label for="pFundo">Foto de fundo</label>
+<input id="pFundo" type="file" accept="image/*">
+<div class="preview" id="prevFundo"></div>
+
+<button id="salvar">Salvar configurações</button>
+<button class="btn-sec" id="sair">Sair do painel</button>
+<div id="adminMsg"></div>
+
+</div>
 </section>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -266,8 +369,6 @@ button:disabled{opacity:.55;cursor:wait}
 <script>
 const API = "https://meu-checkout-skod.onrender.com";
 const $ = id => document.getElementById(id);
-
-const resultado = $("resultado");
 
 let produtoAtual = null;
 let produtosVitrine = [];
@@ -280,29 +381,26 @@ let capaUrl = null;
 let fundoUrl = null;
 let galeriaUrls = [];
 
-function mensagem(el, texto, tipo="") {
+let capaProdutoAtual = null;
+let galeriaProdutoAtual = [];
+
+function mensagem(el, texto, tipo=""){
   el.textContent = texto;
   el.className = tipo;
 }
 
-async function api(path, options={}) {
+async function api(path, options={}){
   const headers = {...(options.headers || {})};
 
-  if (adminSession?.access_token) {
+  if(adminSession?.access_token){
     headers.Authorization = "Bearer " + adminSession.access_token;
   }
 
-  const response = await fetch(API + path, {
-    ...options,
-    headers
-  });
-
+  const response = await fetch(API + path, {...options, headers});
   const data = await response.json().catch(() => ({}));
 
-  if (!response.ok) {
-    throw new Error(
-      data.erro || data.mensagem || "Falha na comunicação com o servidor."
-    );
+  if(!response.ok){
+    throw new Error(data.erro || data.mensagem || "Falha na comunicação com o servidor.");
   }
 
   return data;
@@ -310,8 +408,8 @@ async function api(path, options={}) {
 
 // SUPABASE
 
-async function iniciarSupabase() {
-  if (sb) return sb;
+async function iniciarSupabase(){
+  if(sb) return sb;
 
   const config = await api("/api/config-public");
 
@@ -323,39 +421,117 @@ async function iniciarSupabase() {
   return sb;
 }
 
-// VITRINE DE PRODUTOS
+// IMAGENS
 
-function formatarDinheiro(valor) {
-  return Number(valor || 0).toLocaleString("pt-BR", {
-    style: "currency", currency: "BRL"
+async function uploadImagem(file){
+  if(!file) return null;
+
+  if(!file.type.startsWith("image/")){
+    throw new Error("Selecione um arquivo de imagem válido.");
+  }
+
+  if(file.size > 5 * 1024 * 1024){
+    throw new Error("Cada imagem deve ter no máximo 5 MB.");
+  }
+
+  if(!sb) await iniciarSupabase();
+
+  const ext = (file.name.split(".").pop() || "jpg")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g,"") || "jpg";
+
+  const filePath = `produtos/${crypto.randomUUID()}.${ext}`;
+
+  const {data,error} = await sb.storage
+    .from("product-media")
+    .upload(filePath,file,{
+      cacheControl:"3600",
+      upsert:false,
+      contentType:file.type
+    });
+
+  if(error) throw error;
+
+  const {data:publicData} = sb.storage
+    .from("product-media")
+    .getPublicUrl(data.path);
+
+  if(!publicData?.publicUrl){
+    throw new Error("Não foi possível obter o endereço público da imagem.");
+  }
+
+  return publicData.publicUrl;
+}
+
+function mostrarPreviewArquivos(inputId,previewId){
+  const input = $(inputId);
+  const preview = $(previewId);
+
+  input.addEventListener("change",()=>{
+    preview.replaceChildren();
+
+    Array.from(input.files || []).forEach(file=>{
+      const reader = new FileReader();
+
+      reader.onload = ()=>{
+        const img = document.createElement("img");
+        img.src = reader.result;
+        img.alt = file.name;
+        preview.appendChild(img);
+      };
+
+      reader.readAsDataURL(file);
+    });
   });
 }
 
-async function carregarProduto() {
-  try {
+mostrarPreviewArquivos("admProdutoCapa","previewCapaProduto");
+mostrarPreviewArquivos("admProdutoGaleria","previewGaleriaProduto");
+
+// VITRINE
+
+function formatarDinheiro(valor){
+  return Number(valor || 0).toLocaleString("pt-BR",{
+    style:"currency",currency:"BRL"
+  });
+}
+
+async function carregarProduto(){
+  try{
     const resposta = await api("/api/produtos");
-    produtosVitrine = Array.isArray(resposta.produtos) ? resposta.produtos : [];
+
+    produtosVitrine = Array.isArray(resposta.produtos)
+      ? resposta.produtos : [];
+
     renderVitrine();
-    if (!produtosVitrine.length) {
+
+    if(!produtosVitrine.length){
       $("vitrine").textContent = "Nenhum produto disponível no momento.";
     }
-  } catch (error) {
-    $("vitrine").textContent = error.message || "Não foi possível carregar a vitrine.";
+  }catch(error){
+    $("vitrine").textContent =
+      error.message || "Não foi possível carregar a vitrine.";
   }
 }
 
-function renderVitrine() {
+function renderVitrine(){
   const vitrine = $("vitrine");
   vitrine.replaceChildren();
 
-  produtosVitrine.forEach(produto => {
+  produtosVitrine.forEach(produto=>{
     const card = document.createElement("article");
     card.className = "produto-card";
 
-    if (produto.cover_url) {
+    if(produto.cover_url){
       const img = document.createElement("img");
       img.src = produto.cover_url;
       img.alt = produto.name || "Produto";
+      img.loading = "lazy";
+
+      img.onerror = ()=>{
+        img.remove();
+      };
+
       card.appendChild(img);
     }
 
@@ -375,55 +551,79 @@ function renderVitrine() {
     const comprar = document.createElement("button");
     comprar.type = "button";
     comprar.textContent = "Ver e comprar";
-    comprar.onclick = () => selecionarProduto(produto.id);
+    comprar.onclick = ()=>selecionarProduto(produto.id);
     card.appendChild(comprar);
 
     vitrine.appendChild(card);
   });
 }
 
-function selecionarProduto(id) {
-  const produto = produtosVitrine.find(item => item.id === id);
-  if (!produto) return;
+function selecionarProduto(id){
+  const produto = produtosVitrine.find(item=>item.id===id);
+  if(!produto) return;
 
   produtoAtual = produto;
   produtoSelecionadoId = produto.id;
+
   $("vitrineBox").classList.add("hidden");
   $("produtoDetalhe").classList.remove("hidden");
+
   $("nomeProduto").textContent = produto.name || "Meu Produto";
   $("preco").textContent = formatarDinheiro(produto.price);
-  $("validade").textContent = `Pagamento via Pix • ${produto.pix_access_days || 30} dias de acesso`;
+
+  $("validade").textContent =
+    `Pagamento via Pix • ${produto.pix_access_days || 30} dias de acesso`;
 
   $("capa").removeAttribute("src");
-  $("capa").style.display = produto.cover_url ? "block" : "none";
-  if (produto.cover_url) $("capa").src = produto.cover_url;
+  $("capa").style.display = "none";
+
+  if(produto.cover_url){
+    $("capa").src = produto.cover_url;
+    $("capa").style.display = "block";
+
+    $("capa").onerror = ()=>{
+      $("capa").style.display = "none";
+    };
+  }
 
   $("galeria").replaceChildren();
-  (Array.isArray(produto.gallery_urls) ? produto.gallery_urls : []).forEach(url => {
-    const img = document.createElement("img");
-    img.src = url;
-    img.alt = "Imagem do produto";
-    $("galeria").appendChild(img);
-  });
 
-  document.body.classList.toggle("com-fundo", Boolean(produto.background_url));
+  (Array.isArray(produto.gallery_urls) ? produto.gallery_urls : [])
+    .forEach(url=>{
+      const img = document.createElement("img");
+      img.src = url;
+      img.alt = "Imagem do produto";
+
+      img.onerror = ()=>img.remove();
+
+      $("galeria").appendChild(img);
+    });
+
+  document.body.classList.toggle(
+    "com-fundo",Boolean(produto.background_url)
+  );
+
   document.body.style.backgroundImage = produto.background_url
     ? `url("${produto.background_url}")` : "";
 
-  $("produtoDetalhe").scrollIntoView({ behavior: "smooth", block: "start" });
+  $("produtoDetalhe").scrollIntoView({
+    behavior:"smooth",block:"start"
+  });
 }
 
-$("voltarVitrine").onclick = () => {
+$("voltarVitrine").onclick = ()=>{
   $("produtoDetalhe").classList.add("hidden");
   $("vitrineBox").classList.remove("hidden");
+
   produtoSelecionadoId = null;
   produtoAtual = null;
-  resultado.replaceChildren();
+  $("resultado").replaceChildren();
 };
 
 // PIX
 
-function mostrarPix(retorno, dadosCliente) {
+function mostrarPix(retorno,dadosCliente){
+  const resultado = $("resultado");
   resultado.replaceChildren();
 
   const titulo = document.createElement("h3");
@@ -433,9 +633,8 @@ function mostrarPix(retorno, dadosCliente) {
   const imagem = retorno.imagem_qrcode;
   const codigo = retorno.pix_copia_e_cola;
 
-  if (imagem) {
+  if(imagem){
     const img = document.createElement("img");
-
     img.id = "qrcode";
     img.alt = "QR Code Pix";
 
@@ -446,7 +645,7 @@ function mostrarPix(retorno, dadosCliente) {
     resultado.appendChild(img);
   }
 
-  if (codigo) {
+  if(codigo){
     const label = document.createElement("p");
     label.textContent = "Pix Copia e Cola:";
     resultado.appendChild(label);
@@ -460,16 +659,14 @@ function mostrarPix(retorno, dadosCliente) {
     copy.type = "button";
     copy.textContent = "Copiar código Pix";
 
-    copy.onclick = async () => {
-      try {
+    copy.onclick = async ()=>{
+      try{
         await navigator.clipboard.writeText(codigo);
         copy.textContent = "Código copiado!";
-      } catch {
-        mensagem(
-          resultado,
+      }catch{
+        mensagem(resultado,
           "Não foi possível copiar automaticamente. Selecione o código Pix acima.",
-          "erro"
-        );
+          "erro");
       }
     };
 
@@ -479,25 +676,24 @@ function mostrarPix(retorno, dadosCliente) {
   const status = document.createElement("p");
   status.textContent = "Estamos verificando a confirmação do pagamento...";
   status.style.marginTop = "18px";
-
   resultado.appendChild(status);
 
   let tentativas = 0;
 
-  const verificar = async () => {
+  const verificar = async ()=>{
     tentativas++;
 
-    try {
-      const retornoStatus = await api("/api/pedido/status", {
-        method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({
-          pedido_id: retorno.pedido_id,
-          email: dadosCliente.email
+    try{
+      const retornoStatus = await api("/api/pedido/status",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          pedido_id:retorno.pedido_id,
+          email:dadosCliente.email
         })
       });
 
-      if (retornoStatus.status === "paid" && retornoStatus.acesso) {
+      if(retornoStatus.status==="paid" && retornoStatus.acesso){
         status.textContent = "Pagamento confirmado! Seu acesso está liberado.";
         status.className = "sucesso";
 
@@ -512,65 +708,56 @@ function mostrarPix(retorno, dadosCliente) {
         return;
       }
 
-      if (
-        retornoStatus.status === "failed" ||
-        retornoStatus.status === "expired"
-      ) {
-        status.textContent =
-          "Este pagamento não foi concluído. Gere um novo Pix.";
+      if(
+        retornoStatus.status==="failed" ||
+        retornoStatus.status==="expired"
+      ){
+        status.textContent = "Este pagamento não foi concluído. Gere um novo Pix.";
         return;
       }
 
-      if (tentativas < 60) {
-        setTimeout(verificar, 5000);
-      } else {
-        status.textContent =
-          "Ainda aguardando confirmação. Você também pode consultar em Meus pedidos.";
-      }
+      if(tentativas<60) setTimeout(verificar,5000);
+      else status.textContent =
+        "Ainda aguardando confirmação. Consulte em Meus pedidos.";
 
-    } catch (e) {
-      if (tentativas < 60) {
-        setTimeout(verificar, 7000);
-      } else {
-        status.textContent =
-          "Não foi possível consultar automaticamente. Consulte em Meus pedidos.";
-      }
+    }catch{
+      if(tentativas<60) setTimeout(verificar,7000);
+      else status.textContent =
+        "Não foi possível consultar automaticamente. Consulte em Meus pedidos.";
     }
   };
 
-  setTimeout(verificar, 5000);
+  setTimeout(verificar,5000);
 }
 
-$("formulario").addEventListener("submit", async event => {
+$("formulario").addEventListener("submit",async event=>{
   event.preventDefault();
 
-  resultado.replaceChildren();
+  $("resultado").replaceChildren();
 
   const botao = $("botao");
-
   botao.disabled = true;
   botao.textContent = "Gerando Pix...";
 
   const dados = {
-    nome: $("nome").value.trim(),
-    email: $("email").value.trim().toLowerCase(),
-    telefone: $("telefone").value.replace(/\D/g,""),
-    product_id: produtoSelecionadoId
+    nome:$("nome").value.trim(),
+    email:$("email").value.trim().toLowerCase(),
+    telefone:$("telefone").value.replace(/\D/g,""),
+    product_id:produtoSelecionadoId
   };
 
-  try {
-    const retorno = await api("/api/pix/criar", {
+  try{
+    const retorno = await api("/api/pix/criar",{
       method:"POST",
       headers:{"Content-Type":"application/json"},
       body:JSON.stringify(dados)
     });
 
-    mostrarPix(retorno, dados);
+    mostrarPix(retorno,dados);
 
-  } catch (error) {
-    mensagem(resultado, error.message, "erro");
-
-  } finally {
+  }catch(error){
+    mensagem($("resultado"),error.message,"erro");
+  }finally{
     botao.disabled = false;
     botao.textContent = "Gerar Pix";
   }
@@ -578,65 +765,58 @@ $("formulario").addEventListener("submit", async event => {
 
 // MEUS PEDIDOS
 
-function abrirHistorico() {
+function abrirHistorico(){
   $("historicoBox").classList.remove("hidden");
-  $("historicoBox").scrollIntoView({
-    behavior:"smooth",
-    block:"start"
-  });
+  $("historicoBox").scrollIntoView({behavior:"smooth",block:"start"});
 }
 
-function fecharHistorico() {
+function fecharHistorico(){
   $("historicoBox").classList.add("hidden");
 }
 
 $("abrirHistorico").onclick = abrirHistorico;
 $("fecharHistorico").onclick = fecharHistorico;
 
-function dataFormatada(data) {
-  if (!data) return "Não informado";
-
+function dataFormatada(data){
+  if(!data) return "Não informado";
   const valor = new Date(data);
-
-  if (Number.isNaN(valor.getTime())) return "Não informado";
-
+  if(Number.isNaN(valor.getTime())) return "Não informado";
   return valor.toLocaleString("pt-BR");
 }
 
-function dinheiro(valor) {
-  return Number(valor || 0).toLocaleString("pt-BR", {
-    style:"currency",
-    currency:"BRL"
+function dinheiro(valor){
+  return Number(valor || 0).toLocaleString("pt-BR",{
+    style:"currency",currency:"BRL"
   });
 }
 
-async function enviarLinkHistorico() {
+async function enviarLinkHistorico(){
   const botao = $("enviarLink");
   const email = $("historicoEmail").value.trim().toLowerCase();
 
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    mensagem($("historicoMsg"), "Digite um e-mail válido.", "erro");
+  if(!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+    mensagem($("historicoMsg"),"Digite um e-mail válido.","erro");
     return;
   }
 
-  try {
+  try{
     botao.disabled = true;
     botao.textContent = "Enviando...";
 
     await iniciarSupabase();
 
-    const destino = window.location.origin + window.location.pathname +
-      "?meus-pedidos=1";
+    const destino = window.location.origin +
+      window.location.pathname + "?meus-pedidos=1";
 
-    const { error } = await sb.auth.signInWithOtp({
+    const {error} = await sb.auth.signInWithOtp({
       email,
-      options: {
-        shouldCreateUser: true,
-        emailRedirectTo: destino
+      options:{
+        shouldCreateUser:true,
+        emailRedirectTo:destino
       }
     });
 
-    if (error) throw error;
+    if(error) throw error;
 
     mensagem(
       $("historicoMsg"),
@@ -644,14 +824,9 @@ async function enviarLinkHistorico() {
       "sucesso"
     );
 
-  } catch (error) {
-    mensagem(
-      $("historicoMsg"),
-      error.message || "Não foi possível enviar o e-mail.",
-      "erro"
-    );
-
-  } finally {
+  }catch(error){
+    mensagem($("historicoMsg"),error.message,"erro");
+  }finally{
     botao.disabled = false;
     botao.textContent = "Enviar link de confirmação";
   }
@@ -659,7 +834,7 @@ async function enviarLinkHistorico() {
 
 $("enviarLink").onclick = enviarLinkHistorico;
 
-function criarPedidoVisual(pedido) {
+function criarPedidoVisual(pedido){
   const card = document.createElement("div");
   card.className = "pedido";
 
@@ -677,33 +852,30 @@ function criarPedidoVisual(pedido) {
 
   const status = document.createElement("p");
 
-  if (pedido.status === "paid") {
+  if(pedido.status==="paid"){
     status.textContent = "Pagamento: confirmado";
     status.className = "sucesso";
-  } else if (pedido.status === "pending") {
+  }else if(pedido.status==="pending"){
     status.textContent = "Pagamento: aguardando confirmação";
-  } else {
+  }else{
     status.textContent = "Pagamento: " + String(pedido.status || "não informado");
   }
 
   card.appendChild(status);
 
-  const acessos = Array.isArray(pedido.acessos)
-    ? pedido.acessos
-    : [];
+  const acessos = Array.isArray(pedido.acessos) ? pedido.acessos : [];
 
-  if (acessos.length) {
-    acessos.forEach(acesso => {
+  if(acessos.length){
+    acessos.forEach(acesso=>{
       const produto = document.createElement("p");
       produto.textContent = "Produto: " + (acesso.produto || "Produto digital");
       card.appendChild(produto);
 
       const validade = document.createElement("p");
-      validade.textContent =
-        "Validade até: " + dataFormatada(acesso.expira_em);
+      validade.textContent = "Validade até: " + dataFormatada(acesso.expira_em);
       card.appendChild(validade);
 
-      if (acesso.ativo && acesso.acesso) {
+      if(acesso.ativo && acesso.acesso){
         const link = document.createElement("a");
         link.className = "link-acesso";
         link.href = acesso.acesso;
@@ -711,53 +883,40 @@ function criarPedidoVisual(pedido) {
         link.rel = "noopener";
         link.textContent = "Acessar meu produto";
         card.appendChild(link);
-      } else {
+      }else{
         const expirado = document.createElement("p");
         expirado.textContent = "Acesso expirado ou indisponível.";
         expirado.className = "erro";
         card.appendChild(expirado);
       }
     });
-
-  } else if (pedido.status === "paid") {
+  }else{
     const aviso = document.createElement("p");
-    aviso.textContent =
-      "Pagamento confirmado. O acesso ainda não está disponível.";
-    card.appendChild(aviso);
-
-  } else {
-    const aviso = document.createElement("p");
-    aviso.textContent =
-      "Após a confirmação do pagamento, seu acesso aparecerá aqui.";
+    aviso.textContent = pedido.status==="paid"
+      ? "Pagamento confirmado. O acesso ainda não está disponível."
+      : "Após a confirmação do pagamento, seu acesso aparecerá aqui.";
     card.appendChild(aviso);
   }
 
   return card;
 }
 
-async function carregarMeusPedidos() {
+async function carregarMeusPedidos(){
   const lista = $("listaPedidos");
-
   lista.replaceChildren();
 
-  try {
+  try{
     await iniciarSupabase();
 
-    const { data: sessionData, error: sessionError } =
-      await sb.auth.getSession();
-
-    if (sessionError) throw sessionError;
+    const {data:sessionData,error:sessionError} = await sb.auth.getSession();
+    if(sessionError) throw sessionError;
 
     const session = sessionData.session;
 
-    if (!session?.access_token) {
+    if(!session?.access_token){
       $("historicoPedidos").classList.add("hidden");
       $("historicoLogin").classList.remove("hidden");
-      mensagem(
-        $("historicoMsg"),
-        "Confirme seu e-mail para consultar suas compras.",
-        ""
-      );
+      mensagem($("historicoMsg"),"Confirme seu e-mail para consultar suas compras.","");
       return;
     }
 
@@ -767,219 +926,307 @@ async function carregarMeusPedidos() {
     $("historicoIdentificado").textContent =
       "E-mail confirmado: " + session.user.email;
 
-    const response = await fetch(API + "/api/meus-pedidos", {
+    const response = await fetch(API + "/api/meus-pedidos",{
       method:"GET",
-      headers: {
-        Authorization:"Bearer " + session.access_token
-      }
+      headers:{Authorization:"Bearer " + session.access_token}
     });
 
-    const dados = await response.json().catch(() => ({}));
+    const dados = await response.json().catch(()=>({}));
 
-    if (!response.ok) {
+    if(!response.ok){
       throw new Error(dados.erro || "Não foi possível consultar os pedidos.");
     }
 
-    if (!Array.isArray(dados.pedidos) || dados.pedidos.length === 0) {
+    if(!Array.isArray(dados.pedidos) || dados.pedidos.length===0){
       const vazio = document.createElement("p");
-      vazio.textContent =
-        "Não encontramos compras vinculadas a este e-mail.";
+      vazio.textContent = "Não encontramos compras vinculadas a este e-mail.";
       lista.appendChild(vazio);
       return;
     }
 
-    dados.pedidos.forEach(pedido => {
+    dados.pedidos.forEach(pedido=>{
       lista.appendChild(criarPedidoVisual(pedido));
     });
 
-  } catch (error) {
-    lista.replaceChildren();
-
+  }catch(error){
     const aviso = document.createElement("p");
     aviso.textContent = error.message || "Erro ao carregar seus pedidos.";
     aviso.className = "erro";
-
     lista.appendChild(aviso);
   }
 }
 
 $("atualizarPedidos").onclick = carregarMeusPedidos;
 
-$("sairHistorico").onclick = async () => {
-  try {
-    if (sb) await sb.auth.signOut();
+$("sairHistorico").onclick = async ()=>{
+  try{
+    if(sb) await sb.auth.signOut();
 
     $("historicoPedidos").classList.add("hidden");
     $("historicoLogin").classList.remove("hidden");
     $("listaPedidos").replaceChildren();
 
-    mensagem(
-      $("historicoMsg"),
-      "Você saiu da consulta de pedidos.",
-      "sucesso"
-    );
-
-  } catch (error) {
-    mensagem($("historicoMsg"), error.message, "erro");
+    mensagem($("historicoMsg"),"Você saiu da consulta de pedidos.","sucesso");
+  }catch(error){
+    mensagem($("historicoMsg"),error.message,"erro");
   }
 };
 
-// PAINEL ADMINISTRATIVO
+// ADMINISTRADOR
 
-function mostrarAreaAdmin() {
+function mostrarAreaAdmin(){
   $("checkout").classList.add("hidden");
   $("admin").classList.remove("hidden");
 }
 
-function mostrarLoja() {
+function mostrarLoja(){
   $("admin").classList.add("hidden");
   $("checkout").classList.remove("hidden");
-
   history.replaceState(null,"",location.pathname);
 }
 
-$("abrirAdmin").addEventListener("click", async e => {
+$("abrirAdmin").addEventListener("click",async e=>{
   e.preventDefault();
-
   mostrarAreaAdmin();
 
-  try {
+  try{
     await iniciarSupabase();
-
     const {data} = await sb.auth.getSession();
 
-    if (data.session) {
+    if(data.session){
       adminSession = data.session;
       await carregarPainel();
     }
-
-  } catch (error) {
-    mensagem($("loginMsg"), error.message, "erro");
+  }catch(error){
+    mensagem($("loginMsg"),error.message,"erro");
   }
 });
 
 $("voltarLogin").onclick = mostrarLoja;
 
-$("entrar").onclick = async () => {
-  try {
+$("entrar").onclick = async ()=>{
+  try{
     $("entrar").disabled = true;
+    if(!sb) await iniciarSupabase();
 
-    if (!sb) await iniciarSupabase();
-
-    const {data, error} = await sb.auth.signInWithPassword({
+    const {data,error} = await sb.auth.signInWithPassword({
       email:$("adminEmail").value.trim(),
       password:$("adminSenha").value
     });
 
-    if (error) throw error;
+    if(error) throw error;
 
     adminSession = data.session;
-
     await carregarPainel();
 
-  } catch (error) {
-    mensagem(
-      $("loginMsg"),
-      error.message || "Não foi possível entrar.",
-      "erro"
-    );
-
-  } finally {
+  }catch(error){
+    mensagem($("loginMsg"),error.message || "Não foi possível entrar.","erro");
+  }finally{
     $("entrar").disabled = false;
   }
 };
 
-async function carregarProdutosAdmin() {
+async function carregarProdutosAdmin(){
   const resposta = await api("/api/admin/produtos");
   const produtos = Array.isArray(resposta.produtos) ? resposta.produtos : [];
   const lista = $("adminListaProdutos");
   lista.replaceChildren();
 
-  produtos.forEach(produto => {
+  produtos.forEach(produto=>{
     const item = document.createElement("div");
     item.className = "admin-produto";
+
     const titulo = document.createElement("strong");
     titulo.textContent = produto.name;
+
     const info = document.createElement("p");
-    info.textContent = `${formatarDinheiro(produto.price)} • ${produto.pix_access_days} dias • ${produto.active ? "Ativo" : "Inativo"}`;
+    info.textContent =
+      `${formatarDinheiro(produto.price)} • ${produto.pix_access_days} dias • ${produto.active ? "Ativo" : "Inativo"}`;
+
     const editar = document.createElement("button");
     editar.type = "button";
     editar.textContent = "Editar";
-    editar.onclick = () => preencherProdutoAdmin(produto);
-    item.append(titulo, info, editar);
+    editar.onclick = ()=>preencherProdutoAdmin(produto);
+
+    item.append(titulo,info,editar);
     lista.appendChild(item);
   });
 
   const botao = $("salvarProdutoAdmin");
-  botao.disabled = produtos.length >= 5 && !produtoAdminId;
-  if (produtos.length >= 5 && !produtoAdminId) {
-    mensagem($("adminProdutosMsg"), "Limite de 5 produtos atingido. Edite um produto existente.");
+  botao.disabled = produtos.length>=5 && !produtoAdminId;
+
+  if(produtos.length>=5 && !produtoAdminId){
+    mensagem(
+      $("adminProdutosMsg"),
+      "Limite de 5 produtos atingido. Edite um produto existente."
+    );
   }
 }
 
-function preencherProdutoAdmin(produto) {
+function preencherProdutoAdmin(produto){
   produtoAdminId = produto.id;
+
   $("tituloFormularioProduto").textContent = "Editar produto";
   $("admProdutoNome").value = produto.name || "";
   $("admProdutoPreco").value = produto.price || "";
   $("admProdutoDias").value = produto.pix_access_days || 30;
   $("admProdutoDrive").value = produto.drive_url || "";
-  $("admProdutoCapa").value = produto.cover_url || "";
   $("admProdutoAtivo").checked = produto.active !== false;
+
+  // Mantém as imagens atuais se nenhuma nova for escolhida.
+  capaProdutoAtual = produto.cover_url || null;
+
+  galeriaProdutoAtual = Array.isArray(produto.gallery_urls)
+    ? [...produto.gallery_urls] : [];
+
+  $("admProdutoCapa").value = "";
+  $("admProdutoGaleria").value = "";
+
+  $("previewCapaProduto").replaceChildren();
+  $("previewGaleriaProduto").replaceChildren();
+
+  if(capaProdutoAtual){
+    addPreview($("previewCapaProduto"),capaProdutoAtual);
+  }
+
+  galeriaProdutoAtual.forEach(url=>{
+    addPreview($("previewGaleriaProduto"),url);
+  });
+
   $("salvarProdutoAdmin").textContent = "Salvar alterações";
-  $("admProdutoNome").scrollIntoView({ behavior: "smooth", block: "center" });
+
+  $("tituloFormularioProduto").scrollIntoView({
+    behavior:"smooth",block:"start"
+  });
 }
 
-function limparFormularioProdutoAdmin() {
+function limparFormularioProdutoAdmin(){
   produtoAdminId = null;
+  capaProdutoAtual = null;
+  galeriaProdutoAtual = [];
+
   $("tituloFormularioProduto").textContent = "Adicionar produto";
   $("admProdutoNome").value = "";
   $("admProdutoPreco").value = "";
   $("admProdutoDias").value = "30";
   $("admProdutoDrive").value = "";
-  $("admProdutoCapa").value = "";
   $("admProdutoAtivo").checked = true;
+
+  $("admProdutoCapa").value = "";
+  $("admProdutoGaleria").value = "";
+
+  $("previewCapaProduto").replaceChildren();
+  $("previewGaleriaProduto").replaceChildren();
+
   $("salvarProdutoAdmin").textContent = "Cadastrar produto";
-  mensagem($("adminProdutosMsg"), "");
+  mensagem($("adminProdutosMsg"),"");
+  carregarProdutosAdmin().catch(()=>{});
 }
 
 $("cancelarEdicaoProduto").onclick = limparFormularioProdutoAdmin;
 
-$("salvarProdutoAdmin").onclick = async () => {
+$("salvarProdutoAdmin").onclick = async ()=>{
   const botao = $("salvarProdutoAdmin");
-  try {
+
+  try{
     botao.disabled = true;
+    botao.textContent = "Enviando imagens...";
+
+    const nome = $("admProdutoNome").value.trim();
+    const preco = Number($("admProdutoPreco").value);
+    const dias = Number($("admProdutoDias").value);
+    const drive = $("admProdutoDrive").value.trim();
+
+    if(!nome || !Number.isFinite(preco) || preco<=0){
+      throw new Error("Confira o nome e o preço do produto.");
+    }
+
+    if(!Number.isInteger(dias) || dias<1 || dias>3650){
+      throw new Error("Informe uma validade entre 1 e 3650 dias.");
+    }
+
+    if(!drive || !/^https:\/\/(drive\.google\.com|docs\.google\.com)\//i.test(drive)){
+      throw new Error("Informe um link válido do Google Drive.");
+    }
+
+    // Mantém a foto anterior caso não seja escolhida uma nova.
+    let coverUrl = capaProdutoAtual;
+
+    const arquivoCapa = $("admProdutoCapa").files[0];
+
+    if(arquivoCapa){
+      coverUrl = await uploadImagem(arquivoCapa);
+    }
+
+    // Mantém a galeria anterior e acrescenta as fotos novas.
+    let galleryUrls = [...galeriaProdutoAtual];
+
+    const arquivosGaleria = Array.from(
+      $("admProdutoGaleria").files || []
+    );
+
+    if(galleryUrls.length + arquivosGaleria.length > 20){
+      throw new Error("A galeria permite no máximo 20 imagens.");
+    }
+
+    for(const file of arquivosGaleria){
+      const url = await uploadImagem(file);
+      galleryUrls.push(url);
+    }
+
+    botao.textContent = "Salvando produto...";
+
     const payload = {
-      name: $("admProdutoNome").value.trim(),
-      price: Number($("admProdutoPreco").value),
-      accessDays: Number($("admProdutoDias").value),
-      driveUrl: $("admProdutoDrive").value.trim(),
-      coverUrl: $("admProdutoCapa").value.trim() || null,
-      active: $("admProdutoAtivo").checked
+      name:nome,
+      price:preco,
+      accessDays:dias,
+      driveUrl:drive,
+      coverUrl:coverUrl,
+      galleryUrls:galleryUrls,
+      active:$("admProdutoAtivo").checked
     };
+
     const editando = Boolean(produtoAdminId);
-    await api(editando ? `/api/admin/produtos/${produtoAdminId}` : "/api/admin/produtos", {
-      method: editando ? "PUT" : "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-    mensagem($("adminProdutosMsg"), editando ? "Produto atualizado!" : "Produto cadastrado!", "sucesso");
+
+    await api(
+      editando
+        ? `/api/admin/produtos/${produtoAdminId}`
+        : "/api/admin/produtos",
+      {
+        method:editando ? "PUT" : "POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify(payload)
+      }
+    );
+
+    mensagem(
+      $("adminProdutosMsg"),
+      editando ? "Produto atualizado com sucesso!" : "Produto cadastrado com sucesso!",
+      "sucesso"
+    );
+
     limparFormularioProdutoAdmin();
+
     await carregarProdutosAdmin();
     await carregarProduto();
-  } catch (error) {
-    mensagem($("adminProdutosMsg"), error.message, "erro");
-  } finally {
+
+  }catch(error){
+    mensagem($("adminProdutosMsg"),error.message,"erro");
+  }finally{
     botao.disabled = false;
+    botao.textContent = produtoAdminId
+      ? "Salvar alterações"
+      : "Cadastrar produto";
   }
 };
 
-async function carregarPainel() {
-  try {
+async function carregarPainel(){
+  try{
     const cfg = await api("/api/admin/config");
 
     $("loginBox").classList.add("hidden");
     $("painelBox").classList.remove("hidden");
+
     await carregarProdutosAdmin();
 
     $("pNome").value = cfg.name || "";
@@ -991,102 +1238,65 @@ async function carregarPainel() {
     fundoUrl = cfg.backgroundUrl || null;
 
     galeriaUrls = Array.isArray(cfg.galleryUrls)
-      ? cfg.galleryUrls
-      : [];
+      ? cfg.galleryUrls : [];
 
     renderPreviews();
 
-  } catch (error) {
-    mensagem($("loginMsg"), error.message, "erro");
+  }catch(error){
+    mensagem($("loginMsg"),error.message,"erro");
 
-    if (
+    if(
       error.message.includes("Sessão") ||
       error.message.includes("administrador")
-    ) {
+    ){
       await sb.auth.signOut();
       adminSession = null;
     }
   }
 }
 
-function renderPreviews() {
+function renderPreviews(){
   $("prevCapa").replaceChildren();
   $("prevFundo").replaceChildren();
   $("prevGaleria").replaceChildren();
 
-  if (capaUrl) addPreview($("prevCapa"), capaUrl);
-  if (fundoUrl) addPreview($("prevFundo"), fundoUrl);
+  if(capaUrl) addPreview($("prevCapa"),capaUrl);
+  if(fundoUrl) addPreview($("prevFundo"),fundoUrl);
 
-  galeriaUrls.forEach(url => addPreview($("prevGaleria"), url));
+  galeriaUrls.forEach(url=>addPreview($("prevGaleria"),url));
 }
 
-function addPreview(container, url) {
+function addPreview(container,url){
   const img = document.createElement("img");
   img.src = url;
-  img.alt = "Prévia";
+  img.alt = "Prévia da imagem";
+  img.onerror = ()=>img.remove();
   container.appendChild(img);
 }
 
-async function uploadImagem(file) {
-  if (!file) return null;
-
-  if (!file.type.startsWith("image/")) {
-    throw new Error("Selecione um arquivo de imagem.");
-  }
-
-  if (file.size > 5 * 1024 * 1024) {
-    throw new Error("Cada imagem deve ter no máximo 5 MB.");
-  }
-
-  const ext = (file.name.split(".").pop() || "jpg")
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g,"") || "jpg";
-
-  const filePath = `produtos/${crypto.randomUUID()}.${ext}`;
-
-  const {data, error} = await sb.storage
-    .from("product-media")
-    .upload(filePath, file, {
-      cacheControl:"3600",
-      upsert:false,
-      contentType:file.type
-    });
-
-  if (error) throw error;
-
-  return sb.storage
-    .from("product-media")
-    .getPublicUrl(data.path).data.publicUrl;
-}
-
-$("salvar").onclick = async () => {
+$("salvar").onclick = async ()=>{
   const btn = $("salvar");
 
-  try {
+  try{
     btn.disabled = true;
     btn.textContent = "Enviando e salvando...";
 
-    mensagem(
-      $("adminMsg"),
-      "Enviando imagens e salvando configurações..."
-    );
+    mensagem($("adminMsg"),"Enviando imagens e salvando configurações...");
 
     const capaFile = $("pCapa").files[0];
     const fundoFile = $("pFundo").files[0];
 
-    if (capaFile) capaUrl = await uploadImagem(capaFile);
-    if (fundoFile) fundoUrl = await uploadImagem(fundoFile);
+    if(capaFile) capaUrl = await uploadImagem(capaFile);
+    if(fundoFile) fundoUrl = await uploadImagem(fundoFile);
 
     const files = Array.from($("pGaleria").files || []);
 
-    if (files.length) {
-      const uploaded = [];
+    if(galeriaUrls.length + files.length > 20){
+      throw new Error("A galeria permite no máximo 20 imagens.");
+    }
 
-      for (const file of files) {
-        uploaded.push(await uploadImagem(file));
-      }
-
-      galeriaUrls = [...galeriaUrls, ...uploaded].slice(0,20);
+    for(const file of files){
+      galeriaUrls.push(await uploadImagem(file));
     }
 
     const payload = {
@@ -1099,7 +1309,7 @@ $("salvar").onclick = async () => {
       galleryUrls:galeriaUrls
     };
 
-    await api("/api/admin/config", {
+    await api("/api/admin/config",{
       method:"PUT",
       headers:{"Content-Type":"application/json"},
       body:JSON.stringify(payload)
@@ -1111,25 +1321,20 @@ $("salvar").onclick = async () => {
 
     renderPreviews();
 
-    mensagem(
-      $("adminMsg"),
-      "Configurações salvas com sucesso!",
-      "sucesso"
-    );
+    mensagem($("adminMsg"),"Configurações salvas com sucesso!","sucesso");
 
     await carregarProduto();
 
-  } catch (error) {
-    mensagem($("adminMsg"), error.message, "erro");
-
-  } finally {
+  }catch(error){
+    mensagem($("adminMsg"),error.message,"erro");
+  }finally{
     btn.disabled = false;
     btn.textContent = "Salvar configurações";
   }
 };
 
-$("sair").onclick = async () => {
-  if (sb) await sb.auth.signOut();
+$("sair").onclick = async ()=>{
+  if(sb) await sb.auth.signOut();
 
   adminSession = null;
 
@@ -1141,26 +1346,25 @@ $("sair").onclick = async () => {
 
 // INICIALIZAÇÃO
 
-async function iniciarPagina() {
+async function iniciarPagina(){
   await carregarProduto();
 
-  try {
+  try{
     await iniciarSupabase();
 
-    const {data, error} = await sb.auth.getSession();
+    const {data,error} = await sb.auth.getSession();
+    if(error) throw error;
 
-    if (error) throw error;
-
-    if (data.session) {
+    if(data.session){
       abrirHistorico();
       await carregarMeusPedidos();
     }
 
-  } catch (error) {
-    console.error("Não foi possível iniciar autenticação:", error.message);
+  }catch(error){
+    console.error("Não foi possível iniciar autenticação:",error.message);
   }
 
-  if (new URLSearchParams(location.search).get("meus-pedidos") === "1") {
+  if(new URLSearchParams(location.search).get("meus-pedidos")==="1"){
     abrirHistorico();
   }
 }
