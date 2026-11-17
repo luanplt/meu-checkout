@@ -35,9 +35,11 @@ function env(name) {
 
 const supabaseUrl = env("SUPABASE_URL");
 const serviceRoleKey = env("SUPABASE_SERVICE_ROLE_KEY");
+
 if (!supabaseUrl || !serviceRoleKey) {
   console.error("Faltam SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY no Render.");
 }
+
 const supabase = createClient(supabaseUrl, serviceRoleKey, {
   auth: { autoRefreshToken: false, persistSession: false }
 });
@@ -65,14 +67,19 @@ async function getToken() {
     { grant_type: "client_credentials" },
     {
       httpsAgent: getAgent(),
-      auth: { username: env("EFI_CLIENT_ID"), password: env("EFI_CLIENT_SECRET") },
+      auth: {
+        username: env("EFI_CLIENT_ID"),
+        password: env("EFI_CLIENT_SECRET")
+      },
       headers: { "Content-Type": "application/json" },
       timeout: 30000
     }
   );
 
   tokenCache = response.data.access_token;
-  tokenExpiresAt = Date.now() + Math.max(60, response.data.expires_in - 60) * 1000;
+  tokenExpiresAt =
+    Date.now() + Math.max(60, Number(response.data.expires_in || 300) - 60) * 1000;
+
   return tokenCache;
 }
 
@@ -87,7 +94,9 @@ async function getSettings() {
   if (!data) throw new Error("Configurações do produto não encontradas.");
 
   const price = Number(data.price);
-  if (!Number.isFinite(price) || price <= 0) throw new Error("Preço do produto inválido.");
+  if (!Number.isFinite(price) || price <= 0) {
+    throw new Error("Preço do produto inválido.");
+  }
 
   return {
     name: data.product_name || "Meu Produto",
@@ -108,12 +117,18 @@ async function getActiveProduct() {
     .eq("active", true)
     .limit(1)
     .maybeSingle();
+
   if (error) throw error;
   return data;
 }
 
+// Cria ou recupera o acesso do pedido pago.
+// O token é UUID para ser compatível com a coluna access_token.
 async function createAccess(order) {
+  if (!order?.id) throw new Error("Pedido sem ID válido.");
+
   const product = await getActiveProduct();
+
   if (!product) {
     console.error("Pedido pago, mas não existe produto ativo cadastrado.");
     return null;
@@ -131,8 +146,11 @@ async function createAccess(order) {
 
   const settings = await getSettings();
   const paidAt = order.paid_at ? new Date(order.paid_at) : new Date();
-  const expiresAt = new Date(paidAt.getTime() + settings.accessDays * 86400000);
-  const accessToken = crypto.randomBytes(32).toString("hex");
+  const expiresAt = new Date(
+    paidAt.getTime() + settings.accessDays * 24 * 60 * 60 * 1000
+  );
+
+  const accessToken = crypto.randomUUID();
 
   const { error: insertError } = await supabase
     .from("checkout_access")
@@ -145,16 +163,18 @@ async function createAccess(order) {
     });
 
   if (insertError) {
-    // Webhooks podem ser reenviados; em caso de duplicidade, recupera o acesso existente.
     if (insertError.code === "23505") {
-      const { data: duplicate } = await supabase
+      const { data: duplicate, error: duplicateError } = await supabase
         .from("checkout_access")
         .select("access_token")
         .eq("order_id", order.id)
         .eq("product_id", product.id)
         .maybeSingle();
+
+      if (duplicateError) throw duplicateError;
       return duplicate?.access_token || null;
     }
+
     throw insertError;
   }
 
@@ -165,51 +185,98 @@ async function createAccess(order) {
 async function requireAdmin(req, res, next) {
   try {
     const authorization = String(req.headers.authorization || "");
-    const jwt = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
-    if (!jwt) return res.status(401).json({ erro: "Faça login para continuar." });
+    const jwt = authorization.startsWith("Bearer ")
+      ? authorization.slice(7)
+      : "";
+
+    if (!jwt) {
+      return res.status(401).json({ erro: "Faça login para continuar." });
+    }
 
     const { data, error } = await supabase.auth.getUser(jwt);
-    if (error || !data?.user) return res.status(401).json({ erro: "Sessão inválida. Entre novamente." });
+
+    if (error || !data?.user) {
+      return res.status(401).json({
+        erro: "Sessão inválida. Entre novamente."
+      });
+    }
 
     const adminUid = env("ADMIN_UID");
+
     if (!adminUid || data.user.id !== adminUid) {
-      return res.status(403).json({ erro: "Este usuário não tem permissão de administrador." });
+      return res.status(403).json({
+        erro: "Este usuário não tem permissão de administrador."
+      });
     }
 
     req.adminUser = data.user;
     next();
   } catch (error) {
     console.error("Falha na autenticação administrativa:", error.message);
-    return res.status(401).json({ erro: "Não foi possível validar seu acesso." });
+    return res.status(401).json({
+      erro: "Não foi possível validar seu acesso."
+    });
   }
 }
 
-async function saveProductRow(name, driveUrl) {
+// Atualiza o produto sem gravar NULL em drive_url.
+async function saveProductRow(name, requestedDriveUrl) {
   const { data: current, error: readError } = await supabase
     .from("checkout_products")
-    .select("id")
+    .select("id, drive_url")
     .eq("active", true)
     .limit(1)
     .maybeSingle();
 
   if (readError) throw readError;
 
+  const settings = await getSettings();
+  const driveUrl =
+    requestedDriveUrl ||
+    current?.drive_url ||
+    settings.driveUrl;
+
+  if (!driveUrl) {
+    throw new Error(
+      "Cadastre um link do Google Drive antes de salvar o produto."
+    );
+  }
+
   if (current?.id) {
     const { error } = await supabase
       .from("checkout_products")
-      .update({ name, drive_url: driveUrl, active: true, updated_at: new Date().toISOString() })
+      .update({
+        name,
+        drive_url: driveUrl,
+        active: true,
+        updated_at: new Date().toISOString()
+      })
       .eq("id", current.id);
+
     if (error) throw error;
   } else {
     const { error } = await supabase
       .from("checkout_products")
-      .insert({ name, drive_url: driveUrl, active: true, updated_at: new Date().toISOString() });
+      .insert({
+        name,
+        drive_url: driveUrl,
+        active: true,
+        updated_at: new Date().toISOString()
+      });
+
     if (error) throw error;
   }
+
+  return driveUrl;
 }
 
-app.get("/", (req, res) => res.sendFile(path.join(__dirname, "index.html")));
-app.get("/health", (req, res) => res.json({ status: "ok", service: "Meu Checkout" }));
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"));
+});
+
+app.get("/health", (req, res) => {
+  res.json({ status: "ok", service: "Meu Checkout" });
+});
 
 app.get("/api/config-public", (req, res) => {
   res.json({
@@ -222,7 +289,10 @@ app.get("/api/config-public", (req, res) => {
 app.get("/efi/teste", async (req, res) => {
   try {
     await getToken();
-    res.json({ status: "sucesso", mensagem: "Autenticação Pix realizada." });
+    res.json({
+      status: "sucesso",
+      mensagem: "Autenticação Pix realizada."
+    });
   } catch (error) {
     console.error("Erro Efí:", error.response?.data || error.message);
     res.status(502).json({
@@ -236,6 +306,7 @@ app.get("/efi/teste", async (req, res) => {
 app.get("/api/produto", async (req, res) => {
   try {
     const settings = await getSettings();
+
     res.json({
       nome: settings.name,
       preco: settings.price,
@@ -247,90 +318,164 @@ app.get("/api/produto", async (req, res) => {
     });
   } catch (error) {
     console.error("Erro ao consultar produto:", error.message);
-    res.status(500).json({ erro: "Não foi possível carregar o produto." });
+    res.status(500).json({
+      erro: "Não foi possível carregar o produto."
+    });
   }
 });
 
-// Dados do painel: somente o administrador autenticado.
+// Painel administrativo: carregar configurações.
 app.get("/api/admin/config", requireAdmin, async (req, res) => {
   try {
     const settings = await getSettings();
     res.json(settings);
   } catch (error) {
     console.error("Erro ao carregar painel:", error.message);
-    res.status(500).json({ erro: "Não foi possível carregar as configurações." });
+    res.status(500).json({
+      erro: "Não foi possível carregar as configurações."
+    });
   }
 });
 
+// Painel administrativo: salvar configurações.
 app.put("/api/admin/config", requireAdmin, async (req, res) => {
   try {
     const name = String(req.body?.name || "").trim();
-    const driveUrl = String(req.body?.driveUrl || "").trim();
+    const requestedDriveUrl = String(req.body?.driveUrl || "").trim();
     const price = Number(req.body?.price);
     const accessDays = Number(req.body?.accessDays);
-    const coverUrl = req.body?.coverUrl ? String(req.body.coverUrl) : null;
-    const backgroundUrl = req.body?.backgroundUrl ? String(req.body.backgroundUrl) : null;
+
+    const coverUrl = req.body?.coverUrl
+      ? String(req.body.coverUrl)
+      : null;
+
+    const backgroundUrl = req.body?.backgroundUrl
+      ? String(req.body.backgroundUrl)
+      : null;
+
     const galleryUrls = Array.isArray(req.body?.galleryUrls)
-      ? req.body.galleryUrls.filter(v => typeof v === "string").slice(0, 20)
+      ? req.body.galleryUrls
+          .filter(value => typeof value === "string")
+          .slice(0, 20)
       : [];
 
-    if (!name) return res.status(400).json({ erro: "Informe o nome do produto." });
+    if (!name) {
+      return res.status(400).json({
+        erro: "Informe o nome do produto."
+      });
+    }
+
     if (!Number.isFinite(price) || price <= 0 || price > 100000) {
-      return res.status(400).json({ erro: "Informe um preço válido." });
+      return res.status(400).json({
+        erro: "Informe um preço válido."
+      });
     }
-    if (!Number.isInteger(accessDays) || accessDays < 1 || accessDays > 3650) {
-      return res.status(400).json({ erro: "Informe uma validade entre 1 e 3650 dias." });
+
+    if (
+      !Number.isInteger(accessDays) ||
+      accessDays < 1 ||
+      accessDays > 3650
+    ) {
+      return res.status(400).json({
+        erro: "Informe uma validade entre 1 e 3650 dias."
+      });
     }
-    if (driveUrl && !/^https:\/\/(drive\.google\.com|docs\.google\.com)\//i.test(driveUrl)) {
-      return res.status(400).json({ erro: "Use um link válido do Google Drive." });
+
+    if (
+      requestedDriveUrl &&
+      !/^https:\/\/(drive\.google\.com|docs\.google\.com)\//i.test(
+        requestedDriveUrl
+      )
+    ) {
+      return res.status(400).json({
+        erro: "Use um link válido do Google Drive."
+      });
+    }
+
+    const currentSettings = await getSettings();
+    const product = await getActiveProduct();
+    const finalDriveUrl =
+      requestedDriveUrl ||
+      product?.drive_url ||
+      currentSettings.driveUrl;
+
+    if (!finalDriveUrl) {
+      return res.status(400).json({
+        erro: "Informe o link do Google Drive do produto."
+      });
     }
 
     const updates = {
       product_name: name,
       price: price.toFixed(2),
       pix_access_days: accessDays,
-      drive_url: driveUrl || null,
+      drive_url: finalDriveUrl,
       cover_url: coverUrl,
       gallery_urls: galleryUrls,
       background_url: backgroundUrl,
       updated_at: new Date().toISOString()
     };
 
-    const { error } = await supabase
+    const { error: settingsError } = await supabase
       .from("checkout_settings")
       .update(updates)
       .eq("id", 1);
-    if (error) throw error;
 
-    await saveProductRow(name, driveUrl || null);
-    res.json({ sucesso: true, mensagem: "Configurações salvas." });
+    if (settingsError) throw settingsError;
+
+    await saveProductRow(name, finalDriveUrl);
+
+    res.json({
+      sucesso: true,
+      mensagem: "Configurações salvas."
+    });
   } catch (error) {
-    console.error("Erro ao salvar configurações:", error.message);
-    res.status(500).json({ erro: "Não foi possível salvar. Confira as permissões das tabelas." });
+    console.error(
+      "Erro ao salvar configurações:",
+      error.message || error
+    );
+
+    res.status(500).json({
+      erro: `Erro ao salvar configurações: ${error.message || "erro interno"}.`
+    });
   }
 });
 
-// Criação de cobrança Pix.
+// Criação da cobrança Pix.
 app.post("/api/pix/criar", async (req, res) => {
   let orderId = null;
+
   try {
     const nome = String(req.body?.nome || "").trim();
-    const email = String(req.body?.email || "").trim().toLowerCase();
+    const email = String(req.body?.email || "")
+      .trim()
+      .toLowerCase();
     const cpf = String(req.body?.cpf || "").replace(/\D/g, "");
     const telefone = String(req.body?.telefone || "").replace(/\D/g, "");
 
     if (!nome || !email || !cpf || !telefone) {
-      return res.status(400).json({ erro: "Preencha nome, e-mail, CPF e telefone." });
+      return res.status(400).json({
+        erro: "Preencha nome, e-mail, CPF e telefone."
+      });
     }
+
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return res.status(400).json({ erro: "E-mail inválido." });
     }
-    if (cpf.length !== 11) return res.status(400).json({ erro: "CPF inválido." });
-    if (!env("EFI_PIX_KEY")) throw new Error("Chave Pix não configurada.");
+
+    if (cpf.length !== 11) {
+      return res.status(400).json({ erro: "CPF inválido." });
+    }
+
+    if (!env("EFI_PIX_KEY")) {
+      throw new Error("Chave Pix não configurada.");
+    }
 
     const settings = await getSettings();
     const txid = crypto.randomBytes(13).toString("hex");
-    const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+    const expiresAt = new Date(
+      Date.now() + 30 * 60 * 1000
+    ).toISOString();
 
     const { data: pedido, error: insertError } = await supabase
       .from("checkout_orders")
@@ -347,10 +492,12 @@ app.post("/api/pix/criar", async (req, res) => {
       })
       .select("id")
       .single();
+
     if (insertError) throw insertError;
     orderId = pedido.id;
 
     const token = await getToken();
+
     const cobranca = await axios.put(
       `${EFI_URL}/v2/cob/${txid}`,
       {
@@ -362,18 +509,26 @@ app.post("/api/pix/criar", async (req, res) => {
       },
       {
         httpsAgent: getAgent(),
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
         timeout: 30000
       }
     );
 
-    if (!cobranca.data?.loc?.id) throw new Error("A Efí não retornou o QR Code.");
+    if (!cobranca.data?.loc?.id) {
+      throw new Error("A Efí não retornou o QR Code.");
+    }
 
-    const qr = await axios.get(`${EFI_URL}/v2/loc/${cobranca.data.loc.id}/qrcode`, {
-      httpsAgent: getAgent(),
-      headers: { Authorization: `Bearer ${token}` },
-      timeout: 30000
-    });
+    const qr = await axios.get(
+      `${EFI_URL}/v2/loc/${cobranca.data.loc.id}/qrcode`,
+      {
+        httpsAgent: getAgent(),
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 30000
+      }
+    );
 
     res.json({
       sucesso: true,
@@ -388,24 +543,41 @@ app.post("/api/pix/criar", async (req, res) => {
       link_visualizacao: qr.data.linkVisualizacao
     });
   } catch (error) {
-    console.error("Erro ao criar Pix:", error.response?.data || error.message);
+    console.error(
+      "Erro ao criar Pix:",
+      error.response?.data || error.message
+    );
+
     if (orderId) {
-      await supabase.from("checkout_orders").update({ status: "failed" }).eq("id", orderId);
+      await supabase
+        .from("checkout_orders")
+        .update({ status: "failed" })
+        .eq("id", orderId);
     }
+
     res.status(500).json({
       sucesso: false,
       erro: "Não foi possível gerar o Pix.",
-      detalhe: error.response?.data?.mensagem || error.message
+      detalhe:
+        error.response?.data?.mensagem ||
+        error.message
     });
   }
 });
 
-// Consulta do pedido pelo próprio comprador; libera link apenas após confirmação.
+// Consulta do pedido e criação automática do acesso para pedidos já pagos.
 app.post("/api/pedido/status", async (req, res) => {
   try {
-    const orderId = String(req.body?.pedido_id || "");
-    const email = String(req.body?.email || "").trim().toLowerCase();
-    if (!orderId || !email) return res.status(400).json({ erro: "Pedido e e-mail são obrigatórios." });
+    const orderId = String(req.body?.pedido_id || "").trim();
+    const email = String(req.body?.email || "")
+      .trim()
+      .toLowerCase();
+
+    if (!orderId || !email) {
+      return res.status(400).json({
+        erro: "Pedido e e-mail são obrigatórios."
+      });
+    }
 
     const { data: order, error } = await supabase
       .from("checkout_orders")
@@ -413,29 +585,48 @@ app.post("/api/pedido/status", async (req, res) => {
       .eq("id", orderId)
       .eq("customer_email", email)
       .maybeSingle();
+
     if (error) throw error;
-    if (!order) return res.status(404).json({ erro: "Pedido não encontrado." });
+
+    if (!order) {
+      return res.status(404).json({
+        erro: "Pedido não encontrado."
+      });
+    }
 
     let accessUrl = null;
+
     if (order.status === "paid") {
-      const product = await getActiveProduct();
-      if (product) {
+      const accessToken = await createAccess(order);
+
+      if (accessToken) {
         const { data: access, error: accessError } = await supabase
           .from("checkout_access")
-          .select("access_token, expires_at")
+          .select("expires_at")
           .eq("order_id", order.id)
-          .eq("product_id", product.id)
+          .eq("access_token", accessToken)
           .maybeSingle();
+
         if (accessError) throw accessError;
-        if (access && new Date(access.expires_at) > new Date()) {
-          accessUrl = `${RENDER_URL}/acesso/${access.access_token}`;
+
+        if (
+          access &&
+          new Date(access.expires_at).getTime() > Date.now()
+        ) {
+          accessUrl = `${RENDER_URL}/acesso/${accessToken}`;
         }
       }
     }
-    res.json({ status: order.status, acesso: accessUrl });
+
+    res.json({
+      status: order.status,
+      acesso: accessUrl
+    });
   } catch (error) {
     console.error("Erro ao consultar pedido:", error.message);
-    res.status(500).json({ erro: "Não foi possível consultar o pedido." });
+    res.status(500).json({
+      erro: "Não foi possível consultar o pedido."
+    });
   }
 });
 
@@ -444,20 +635,37 @@ app.post("/webhook", async (req, res) => {
   try {
     const recebido = String(req.query.hmac || "");
     const esperado = env("EFI_WEBHOOK_SECRET");
-    if (!esperado || recebido.length !== esperado.length ||
-      !crypto.timingSafeEqual(Buffer.from(recebido), Buffer.from(esperado))) {
+
+    if (
+      !esperado ||
+      recebido.length !== esperado.length ||
+      !crypto.timingSafeEqual(
+        Buffer.from(recebido),
+        Buffer.from(esperado)
+      )
+    ) {
       return res.sendStatus(401);
     }
 
     const pixRecebidos = req.body?.pix;
-    if (!Array.isArray(pixRecebidos)) return res.sendStatus(200);
+
+    if (!Array.isArray(pixRecebidos)) {
+      return res.sendStatus(200);
+    }
 
     const token = await getToken();
+
     for (const pix of pixRecebidos) {
       const txid = String(pix.txid || "");
       const valorRecebido = Number(pix.valor);
-      if (!txid || !Number.isFinite(valorRecebido) ||
-        String(pix.chave || "") !== env("EFI_PIX_KEY")) continue;
+
+      if (
+        !txid ||
+        !Number.isFinite(valorRecebido) ||
+        String(pix.chave || "") !== env("EFI_PIX_KEY")
+      ) {
+        continue;
+      }
 
       const { data: pedido, error: buscaErro } = await supabase
         .from("checkout_orders")
@@ -465,47 +673,97 @@ app.post("/webhook", async (req, res) => {
         .eq("payment_id", txid)
         .eq("payment_method", "pix")
         .maybeSingle();
-      if (buscaErro) throw buscaErro;
-      if (!pedido || Math.abs(Number(pedido.amount) - valorRecebido) > 0.001) continue;
 
-      const consulta = await axios.get(`${EFI_URL}/v2/cob/${txid}`, {
-        httpsAgent: getAgent(),
-        headers: { Authorization: `Bearer ${token}` },
-        timeout: 30000
-      });
+      if (buscaErro) throw buscaErro;
+
+      if (
+        !pedido ||
+        Math.abs(Number(pedido.amount) - valorRecebido) > 0.001
+      ) {
+        continue;
+      }
+
+      const consulta = await axios.get(
+        `${EFI_URL}/v2/cob/${txid}`,
+        {
+          httpsAgent: getAgent(),
+          headers: { Authorization: `Bearer ${token}` },
+          timeout: 30000
+        }
+      );
 
       const cobranca = consulta.data;
-      if (cobranca.status !== "CONCLUIDA" ||
-        Math.abs(Number(cobranca.valor?.original) - Number(pedido.amount)) > 0.001) continue;
+
+      if (
+        cobranca.status !== "CONCLUIDA" ||
+        Math.abs(
+          Number(cobranca.valor?.original) -
+          Number(pedido.amount)
+        ) > 0.001
+      ) {
+        continue;
+      }
 
       let pedidoAtualizado = pedido;
+
       if (pedido.status !== "paid") {
         const paidAt = new Date().toISOString();
+
         const { data: atualizado, error: updateError } = await supabase
           .from("checkout_orders")
-          .update({ status: "paid", paid_at: paidAt })
+          .update({
+            status: "paid",
+            paid_at: paidAt
+          })
           .eq("id", pedido.id)
           .eq("status", "pending")
           .select("*")
           .maybeSingle();
+
         if (updateError) throw updateError;
-        if (atualizado) pedidoAtualizado = atualizado;
-        else {
+
+        if (atualizado) {
+          pedidoAtualizado = atualizado;
+        } else {
           const { data: atual, error: atualError } = await supabase
-            .from("checkout_orders").select("*").eq("id", pedido.id).single();
+            .from("checkout_orders")
+            .select("*")
+            .eq("id", pedido.id)
+            .single();
+
           if (atualError) throw atualError;
           pedidoAtualizado = atual;
         }
       }
-      if (pedidoAtualizado.status === "paid") await createAccess(pedidoAtualizado);
+
+      if (pedidoAtualizado.status === "paid") {
+        const createdToken = await createAccess(pedidoAtualizado);
+
+        if (createdToken) {
+          console.log(
+            "Pedido pago e acesso disponível:",
+            pedidoAtualizado.id
+          );
+        } else {
+          console.error(
+            "Pedido pago, mas não foi possível criar o acesso:",
+            pedidoAtualizado.id
+          );
+        }
+      }
     }
+
     return res.sendStatus(200);
   } catch (error) {
-    console.error("Erro no webhook Pix:", error.response?.data || error.message);
+    console.error(
+      "Erro no webhook Pix:",
+      error.response?.data || error.message
+    );
     return res.sendStatus(500);
   }
 });
 
+// Link de acesso: só entrega o Drive se o pedido estiver pago e dentro da validade.
 app.get("/acesso/:token", async (req, res) => {
   try {
     const { data: acesso, error } = await supabase
@@ -518,20 +776,34 @@ app.get("/acesso/:token", async (req, res) => {
       `)
       .eq("access_token", req.params.token)
       .maybeSingle();
+
     if (error) throw error;
 
-    if (!acesso || acesso.pedido?.status !== "paid" ||
-      new Date(acesso.expires_at) <= new Date()) {
+    if (
+      !acesso ||
+      acesso.pedido?.status !== "paid" ||
+      new Date(acesso.expires_at).getTime() <= Date.now()
+    ) {
       return res.status(403).send("Acesso inválido ou expirado.");
     }
 
     const settings = await getSettings();
-    const driveUrl = acesso.product?.drive_url || settings.driveUrl;
-    if (!driveUrl) return res.status(503).send("O link do produto ainda não foi configurado.");
+    const driveUrl =
+      acesso.product?.drive_url ||
+      settings.driveUrl;
+
+    if (!driveUrl) {
+      return res.status(503).send(
+        "O link do produto ainda não foi configurado."
+      );
+    }
+
     return res.redirect(302, driveUrl);
   } catch (error) {
     console.error("Erro ao liberar acesso:", error.message);
-    return res.status(500).send("Não foi possível liberar o acesso.");
+    return res.status(500).send(
+      "Não foi possível liberar o acesso."
+    );
   }
 });
 
@@ -539,13 +811,18 @@ async function registerWebhook() {
   try {
     const secret = env("EFI_WEBHOOK_SECRET");
     const pixKey = env("EFI_PIX_KEY");
+
     if (!secret || !pixKey) {
-      console.log("Webhook Pix não cadastrado: faltam variáveis.");
+      console.log(
+        "Webhook Pix não cadastrado: faltam variáveis."
+      );
       return;
     }
 
     const token = await getToken();
-    const webhookUrl = `${RENDER_URL}/webhook?hmac=${encodeURIComponent(secret)}&ignorar=`;
+    const webhookUrl =
+      `${RENDER_URL}/webhook?hmac=${encodeURIComponent(secret)}&ignorar=`;
+
     await axios.put(
       `${EFI_URL}/v2/webhook/${encodeURIComponent(pixKey)}`,
       { webhookUrl },
@@ -559,9 +836,13 @@ async function registerWebhook() {
         timeout: 30000
       }
     );
+
     console.log("Webhook Pix cadastrado na Efí.");
   } catch (error) {
-    console.error("Não foi possível cadastrar webhook Pix:", error.response?.data || error.message);
+    console.error(
+      "Não foi possível cadastrar webhook Pix:",
+      error.response?.data || error.message
+    );
   }
 }
 
