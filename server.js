@@ -20,7 +20,10 @@ function env(name) {
 }
 
 function pem(value) {
-  return value.replace(/\\n/g, "\n").replace(/\r\n/g, "\n").trim() + "\n";
+  return value
+    .replace(/\\n/g, "\n")
+    .replace(/\r\n/g, "\n")
+    .trim() + "\n";
 }
 
 function getAgent() {
@@ -48,34 +51,72 @@ async function getToken() {
         username: env("EFI_CLIENT_ID"),
         password: env("EFI_CLIENT_SECRET")
       },
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json"
+      },
       timeout: 30000
     }
   );
 
   tokenCache = response.data.access_token;
-  tokenExpiresAt = Date.now() + (response.data.expires_in - 60) * 1000;
+  tokenExpiresAt =
+    Date.now() + (response.data.expires_in - 60) * 1000;
 
   return tokenCache;
 }
 
+async function getSettings() {
+  const { data, error } = await supabase
+    .from("checkout_settings")
+    .select("*")
+    .eq("id", 1)
+    .single();
+
+  if (error || !data) {
+    throw new Error("Não foi possível carregar as configurações do produto.");
+  }
+
+  const price = Number(data.price);
+
+  if (!Number.isFinite(price) || price <= 0) {
+    throw new Error("O preço configurado é inválido.");
+  }
+
+  return {
+    name: data.product_name,
+    price: price.toFixed(2),
+    accessDays: Number(data.pix_access_days || 30),
+    billingInterval: data.card_billing_interval || "monthly",
+    driveUrl: data.drive_url || null
+  };
+}
+
 app.get("/", (req, res) => {
-  res.json({ status: "online", service: "Meu Checkout" });
+  res.json({
+    status: "online",
+    service: "Meu Checkout"
+  });
 });
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
 
-// Teste de autenticação: não cria cobrança.
+// Testa a autenticação sem criar cobrança.
 app.get("/efi/teste", async (req, res) => {
   try {
     await getToken();
+
     res.json({
       status: "sucesso",
       mensagem: "Autenticação realizada!"
     });
   } catch (error) {
+    console.error(
+      "Erro de autenticação:",
+      error.response?.data || error.message
+    );
+
     res.status(502).json({
       status: "erro",
       codigo: error.response?.status || error.code || "CONEXAO",
@@ -84,44 +125,71 @@ app.get("/efi/teste", async (req, res) => {
   }
 });
 
-// Criação de cobrança Pix em produção.
+// Consulta as configurações públicas do produto.
+app.get("/api/produto", async (req, res) => {
+  try {
+    const settings = await getSettings();
+
+    res.json({
+      nome: settings.name,
+      preco: settings.price,
+      dias_acesso_pix: settings.accessDays,
+      intervalo_cartao: settings.billingInterval
+    });
+  } catch (error) {
+    res.status(500).json({
+      erro: "Não foi possível carregar o produto."
+    });
+  }
+});
+
+// Cria cobrança Pix na Efí.
 app.post("/api/pix/criar", async (req, res) => {
-  let orderId;
+  let orderId = null;
 
   try {
-    const { nome, email, cpf, telefone } = req.body || {};
+    const nome = String(req.body?.nome || "").trim();
+    const email = String(req.body?.email || "")
+      .trim()
+      .toLowerCase();
+    const cpf = String(req.body?.cpf || "").replace(/\D/g, "");
+    const telefone = String(req.body?.telefone || "")
+      .replace(/\D/g, "");
 
-    const nomeCliente = String(nome || "").trim();
-    const emailCliente = String(email || "").trim().toLowerCase();
-    const cpfCliente = String(cpf || "").replace(/\D/g, "");
-    const telefoneCliente = String(telefone || "").replace(/\D/g, "");
-
-    if (!nomeCliente || !emailCliente || !cpfCliente || !telefoneCliente) {
+    if (!nome || !email || !cpf || !telefone) {
       return res.status(400).json({
-        erro: "Preencha nome, email, CPF e telefone."
+        erro: "Preencha nome, e-mail, CPF e telefone."
       });
     }
 
-    if (cpfCliente.length !== 11) {
-      return res.status(400).json({ erro: "CPF inválido." });
+    if (cpf.length !== 11) {
+      return res.status(400).json({
+        erro: "CPF inválido."
+      });
     }
 
     if (!env("EFI_PIX_KEY")) {
-      return res.status(500).json({ erro: "Chave Pix não configurada." });
+      throw new Error("Chave Pix não configurada no servidor.");
     }
 
-    const txid = crypto.randomBytes(13).toString("hex");
-    const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+    // O preço sempre vem do banco, nunca do navegador.
+    const settings = await getSettings();
 
-    const { data: pedido, error: dbError } = await supabase
+    const txid = crypto.randomBytes(13).toString("hex");
+    const expiresAt = new Date(
+      Date.now() + 30 * 60 * 1000
+    ).toISOString();
+
+    // Primeiro registra o pedido.
+    const { data: pedido, error: insertError } = await supabase
       .from("checkout_orders")
       .insert({
-        customer_name: nomeCliente,
-        customer_email: emailCliente,
-        customer_cpf: cpfCliente,
-        customer_phone: telefoneCliente,
+        customer_name: nome,
+        customer_email: email,
+        customer_cpf: cpf,
+        customer_phone: telefone,
         payment_method: "pix",
-        amount: 13.99,
+        amount: Number(settings.price),
         status: "pending",
         payment_id: txid,
         expires_at: expiresAt
@@ -129,12 +197,15 @@ app.post("/api/pix/criar", async (req, res) => {
       .select("id")
       .single();
 
-    if (dbError) throw dbError;
+    if (insertError) {
+      throw insertError;
+    }
 
     orderId = pedido.id;
 
     const token = await getToken();
 
+    // Cria a cobrança imediata com validade de 30 minutos.
     const cobranca = await axios.put(
       `${EFI_URL}/v2/cob/${txid}`,
       {
@@ -142,11 +213,11 @@ app.post("/api/pix/criar", async (req, res) => {
           expiracao: 1800
         },
         devedor: {
-          cpf: cpfCliente,
-          nome: nomeCliente
+          cpf,
+          nome
         },
         valor: {
-          original: "13.99"
+          original: settings.price
         },
         chave: env("EFI_PIX_KEY"),
         solicitacaoPagador: "Pagamento do produto digital"
@@ -161,6 +232,11 @@ app.post("/api/pix/criar", async (req, res) => {
       }
     );
 
+    if (!cobranca.data?.loc?.id) {
+      throw new Error("A Efí não retornou o identificador do QR Code.");
+    }
+
+    // Busca o QR Code e o Pix Copia e Cola.
     const qr = await axios.get(
       `${EFI_URL}/v2/loc/${cobranca.data.loc.id}/qrcode`,
       {
@@ -172,11 +248,12 @@ app.post("/api/pix/criar", async (req, res) => {
       }
     );
 
-    return res.json({
+    res.json({
       sucesso: true,
       pedido_id: orderId,
       txid,
-      valor: "13.99",
+      produto: settings.name,
+      valor: settings.price,
       expiracao_segundos: 1800,
       expira_em: expiresAt,
       pix_copia_e_cola: qr.data.qrcode,
@@ -197,7 +274,7 @@ app.post("/api/pix/criar", async (req, res) => {
         .eq("id", orderId);
     }
 
-    return res.status(500).json({
+    res.status(500).json({
       sucesso: false,
       erro: "Não foi possível gerar o Pix.",
       detalhe: error.response?.data || error.message
