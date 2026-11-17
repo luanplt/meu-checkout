@@ -27,8 +27,6 @@ app.use((req, res, next) => {
   next();
 });
 
-
-
 function env(name) {
   return (process.env[name] || "").trim();
 }
@@ -145,7 +143,6 @@ async function createAccess(order) {
     paidAt.getTime() + settings.accessDays * 86400000
   );
 
-  // UUID válido para a coluna access_token do Supabase.
   const accessToken = crypto.randomUUID();
 
   const { error: insertError } = await supabase
@@ -396,7 +393,7 @@ app.put("/api/admin/config", requireAdmin, async (req, res) => {
   }
 });
 
-// CRIAÇÃO DO PIX
+// CRIAÇÃO DO PIX — SEM CPF
 
 app.post("/api/pix/criar", async (req, res) => {
   let orderId = null;
@@ -404,21 +401,16 @@ app.post("/api/pix/criar", async (req, res) => {
   try {
     const nome = String(req.body?.nome || "").trim();
     const email = String(req.body?.email || "").trim().toLowerCase();
-    const cpf = String(req.body?.cpf || "").replace(/\D/g, "");
     const telefone = String(req.body?.telefone || "").replace(/\D/g, "");
 
-    if (!nome || !email || !cpf || !telefone) {
+    if (!nome || !email || !telefone) {
       return res.status(400).json({
-        erro: "Preencha nome, e-mail, CPF e telefone."
+        erro: "Preencha nome, e-mail e telefone."
       });
     }
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return res.status(400).json({ erro: "E-mail inválido." });
-    }
-
-    if (cpf.length !== 11) {
-      return res.status(400).json({ erro: "CPF inválido." });
     }
 
     if (!env("EFI_PIX_KEY")) {
@@ -427,7 +419,6 @@ app.post("/api/pix/criar", async (req, res) => {
 
     const settings = await getSettings();
 
-    // TXID com 32 caracteres alfanuméricos, aceito pela Efí.
     const txid = crypto.randomBytes(16).toString("hex");
 
     const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
@@ -437,7 +428,6 @@ app.post("/api/pix/criar", async (req, res) => {
       .insert({
         customer_name: nome,
         customer_email: email,
-        customer_cpf: cpf,
         customer_phone: telefone,
         payment_method: "pix",
         amount: Number(settings.price),
@@ -458,7 +448,6 @@ app.post("/api/pix/criar", async (req, res) => {
       `${EFI_URL}/v2/cob/${txid}`,
       {
         calendario: { expiracao: 1800 },
-        devedor: { cpf, nome },
         valor: { original: settings.price },
         chave: env("EFI_PIX_KEY"),
         solicitacaoPagador: "Pagamento do produto digital"
@@ -618,7 +607,6 @@ app.get("/api/meus-pedidos", async (req, res) => {
       return res.json({ pedidos: [] });
     }
 
-    // Cria acesso para pedidos pagos que ainda não tenham acesso.
     for (const pedido of pedidos) {
       if (pedido.status === "paid") {
         await createAccess(pedido);
