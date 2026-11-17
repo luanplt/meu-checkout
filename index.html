@@ -21,7 +21,8 @@ body{
 body.com-fundo{
   background-size:cover;
   background-position:center;
-  background-attachment:fixed
+  background-attachment:fixed;
+  background-repeat:no-repeat;
 }
 .wrap{
   max-width:520px;margin:22px auto;
@@ -62,7 +63,7 @@ button.btn-sec{background:#eee;color:#222}
   text-align:center;font-size:30px;
   font-weight:800;margin:12px 0
 }
-#capa{
+#capa,#capaGeral{
   display:none;width:100%;max-height:300px;
   object-fit:cover;border-radius:12px;
   margin:0 auto 18px
@@ -169,6 +170,9 @@ button.btn-sec{background:#eee;color:#222}
 <section id="vitrineBox">
 <h1>Meus produtos</h1>
 <p class="sub">Escolha o produto que deseja adquirir.</p>
+
+<img id="capaGeral" alt="Capa da loja">
+
 <div id="vitrine" class="vitrine-grid"></div>
 </section>
 
@@ -381,6 +385,8 @@ let capaUrl = null;
 let fundoUrl = null;
 let galeriaUrls = [];
 
+let fundoGeralUrl = null;
+
 let capaProdutoAtual = null;
 let galeriaProdutoAtual = [];
 
@@ -487,6 +493,41 @@ function mostrarPreviewArquivos(inputId,previewId){
 
 mostrarPreviewArquivos("admProdutoCapa","previewCapaProduto");
 mostrarPreviewArquivos("admProdutoGaleria","previewGaleriaProduto");
+
+// CARREGAR CAPA E FUNDO GERAIS
+
+async function carregarImagensGerais(){
+  try{
+    const dados = await api("/api/produto");
+
+    const capa = $("capaGeral");
+
+    if(dados.capa){
+      capa.src = dados.capa;
+      capa.style.display = "block";
+
+      capa.onerror = ()=>{
+        capa.style.display = "none";
+      };
+    }else{
+      capa.removeAttribute("src");
+      capa.style.display = "none";
+    }
+
+    fundoGeralUrl = dados.fundo || null;
+
+    document.body.classList.toggle(
+      "com-fundo",Boolean(fundoGeralUrl)
+    );
+
+    document.body.style.backgroundImage = fundoGeralUrl
+      ? `url("${fundoGeralUrl}")`
+      : "";
+
+  }catch(error){
+    console.error("Erro ao carregar imagens gerais:",error);
+  }
+}
 
 // VITRINE
 
@@ -599,12 +640,15 @@ function selecionarProduto(id){
       $("galeria").appendChild(img);
     });
 
+  const fundoAtual = produto.background_url || fundoGeralUrl;
+
   document.body.classList.toggle(
-    "com-fundo",Boolean(produto.background_url)
+    "com-fundo",Boolean(fundoAtual)
   );
 
-  document.body.style.backgroundImage = produto.background_url
-    ? `url("${produto.background_url}")` : "";
+  document.body.style.backgroundImage = fundoAtual
+    ? `url("${fundoAtual}")`
+    : "";
 
   $("produtoDetalhe").scrollIntoView({
     behavior:"smooth",block:"start"
@@ -617,7 +661,20 @@ $("voltarVitrine").onclick = ()=>{
 
   produtoSelecionadoId = null;
   produtoAtual = null;
+
   $("resultado").replaceChildren();
+
+  document.body.classList.toggle(
+    "com-fundo",Boolean(fundoGeralUrl)
+  );
+
+  document.body.style.backgroundImage = fundoGeralUrl
+    ? `url("${fundoGeralUrl}")`
+    : "";
+
+  $("vitrineBox").scrollIntoView({
+    behavior:"smooth",block:"start"
+  });
 };
 
 // PIX
@@ -1073,7 +1130,6 @@ function preencherProdutoAdmin(produto){
   $("admProdutoDrive").value = produto.drive_url || "";
   $("admProdutoAtivo").checked = produto.active !== false;
 
-  // Mantém as imagens atuais se nenhuma nova for escolhida.
   capaProdutoAtual = produto.cover_url || null;
 
   galeriaProdutoAtual = Array.isArray(produto.gallery_urls)
@@ -1149,7 +1205,6 @@ $("salvarProdutoAdmin").onclick = async ()=>{
       throw new Error("Informe um link válido do Google Drive.");
     }
 
-    // Mantém a foto anterior caso não seja escolhida uma nova.
     let coverUrl = capaProdutoAtual;
 
     const arquivoCapa = $("admProdutoCapa").files[0];
@@ -1158,7 +1213,6 @@ $("salvarProdutoAdmin").onclick = async ()=>{
       coverUrl = await uploadImagem(arquivoCapa);
     }
 
-    // Mantém a galeria anterior e acrescenta as fotos novas.
     let galleryUrls = [...galeriaProdutoAtual];
 
     const arquivosGaleria = Array.from(
@@ -1324,6 +1378,7 @@ $("salvar").onclick = async ()=>{
     mensagem($("adminMsg"),"Configurações salvas com sucesso!","sucesso");
 
     await carregarProduto();
+    await carregarImagensGerais();
 
   }catch(error){
     mensagem($("adminMsg"),error.message,"erro");
@@ -1348,6 +1403,7 @@ $("sair").onclick = async ()=>{
 
 async function iniciarPagina(){
   await carregarProduto();
+  await carregarImagensGerais();
 
   try{
     await iniciarSupabase();
