@@ -27,7 +27,7 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.static(__dirname));
+
 
 function env(name) {
   return (process.env[name] || "").trim();
