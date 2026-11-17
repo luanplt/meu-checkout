@@ -630,6 +630,100 @@ app.post("/api/pedido/status", async (req, res) => {
   }
 });
 
+/* HISTÓRICO DE COMPRAS DO CLIENTE
+   Exige sessão autenticada pelo código enviado ao e-mail.
+*/
+app.get("/api/meus-pedidos", async (req, res) => {
+  try {
+    const authorization = String(req.headers.authorization || "");
+    const jwt = authorization.startsWith("Bearer ")
+      ? authorization.slice(7)
+      : "";
+
+    if (!jwt) {
+      return res.status(401).json({
+        erro: "Confirme seu e-mail para consultar suas compras."
+      });
+    }
+
+    const { data: authData, error: authError } =
+      await supabase.auth.getUser(jwt);
+
+    if (authError || !authData?.user?.email) {
+      return res.status(401).json({
+        erro: "Código inválido ou sessão expirada. Confirme seu e-mail novamente."
+      });
+    }
+
+    const email = String(authData.user.email).trim().toLowerCase();
+
+    const { data: pedidos, error: pedidosError } = await supabase
+      .from("checkout_orders")
+      .select("id, amount, status, created_at, paid_at, payment_method")
+      .ilike("customer_email", email)
+      .order("created_at", { ascending: false });
+
+    if (pedidosError) throw pedidosError;
+
+    if (!pedidos || pedidos.length === 0) {
+      return res.json({ pedidos: [] });
+    }
+
+    const ids = pedidos.map(pedido => pedido.id);
+
+    const { data: acessos, error: acessosError } = await supabase
+      .from("checkout_access")
+      .select(`
+        order_id,
+        access_token,
+        expires_at,
+        product:checkout_products(name)
+      `)
+      .eq("customer_email", email)
+      .in("order_id", ids);
+
+    if (acessosError) throw acessosError;
+
+    const agora = Date.now();
+
+    const resultado = pedidos.map(pedido => {
+      const acessosDoPedido = (acessos || [])
+        .filter(acesso => acesso.order_id === pedido.id)
+        .map(acesso => {
+          const expira = new Date(acesso.expires_at).getTime();
+          const valido = expira > agora && pedido.status === "paid";
+
+          return {
+            produto: acesso.product?.name || "Produto digital",
+            expira_em: acesso.expires_at,
+            ativo: valido,
+            acesso: valido
+              ? `${RENDER_URL}/acesso/${acesso.access_token}`
+              : null
+          };
+        });
+
+      return {
+        pedido_id: pedido.id,
+        valor: pedido.amount,
+        status: pedido.status,
+        criado_em: pedido.created_at,
+        pago_em: pedido.paid_at,
+        acessos: acessosDoPedido
+      };
+    });
+
+    return res.json({ pedidos: resultado });
+
+  } catch (error) {
+    console.error("Erro ao consultar histórico:", error.message);
+
+    return res.status(500).json({
+      erro: "Não foi possível consultar suas compras."
+    });
+  }
+});
+
 // Webhook Pix da Efí.
 app.post("/webhook", async (req, res) => {
   try {
